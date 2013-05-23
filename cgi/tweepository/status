@@ -1,0 +1,48 @@
+use EPrints;
+use strict;
+
+my $eprints = EPrints->new;
+my $repo = $eprints->current_repository;
+exit( 0 ) unless( defined $repo );
+
+#count number of tweets and tweetstreams
+my %counts;
+foreach my $ds_id (qw/ tweet tweetstream /)
+{
+        my $ds = $repo->dataset( $ds_id );
+        my $table = $ds->get_sql_table_name;
+        $counts{$ds_id} = $repo->get_database->count_table( $table );
+}
+
+#find out how recently the last tweet was created
+#this is done by twitterid, which is probably the oldest item from the last update
+my $ds = $repo->dataset( 'tweet' );
+my $search = $ds->prepare_search(custom_order => "-twitterid", limit => 1 );
+my $list = $search->perform_search;
+my @things = $list->get_records;
+my $item = $things[0];
+exit unless $item;
+
+my $item_secs = EPrints::Time::datetime_local(EPrints::Time::split_value($item->get_value('created_at')));
+my $currentdate = localtime;
+my $delta = time - $item_secs;
+my $delta_mins;
+{
+	use integer;
+	$delta_mins = $delta / 60;
+}
+
+my $status = 0;
+$status = 1 if $delta_mins > 90;
+
+$repo->send_http_header( content_type=>"text/plain; charset=UTF-8" );
+print "$status: recent tweet is $delta_mins minutes old\n";
+foreach my $ds_id ( sort keys %counts )
+{
+        print sprintf("%s: %i\n",
+                        $ds_id,
+                        $counts{$ds_id}
+                     );
+}
+
+print `df -h`;
