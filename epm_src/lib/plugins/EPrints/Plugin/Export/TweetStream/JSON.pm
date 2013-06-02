@@ -93,7 +93,7 @@ sub _epdata_to_json
 
 	$epdata->tweets->map(sub
 	{
-		my ($reposiotry, $ds, $tweet) = @_;
+		my ($repo, $ds, $tweet) = @_;
 
 		$r .= ",\n"if !$first;
 		$first = 0;
