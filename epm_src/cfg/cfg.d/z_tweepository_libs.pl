@@ -620,13 +620,22 @@ sub hashtags
 	return \@tags;
 }
 
-#Note that this function does *not* look up URLs.  This is assumed done outside the object.
 sub enrich_text
 {
         my ($self) = @_;
 
         my $message = $self->get_value('text');
         return unless $message;
+
+	my $url_map = {};
+	my $tweet_data = $self->get_value('json_source');
+	if ($tweet_data->{entities})
+	{
+		foreach my $url_data (@{$tweet_data->{entities}->{urls}})
+		{
+			$url_map->{$url_data->{url}} = $url_data->{expanded_url};
+		}
+	}
 
         my $expanded_message = $message;
 
@@ -635,13 +644,20 @@ sub enrich_text
         my $finder = URI::Find->new(sub{
                 my($uri, $orig_uri) = @_;
 
-		push @URLS, $orig_uri;
+		my $url_to_use = $orig_uri;
+
+		if ($url_map->{$orig_uri})
+		{
+			$url_to_use = $url_map->{$orig_uri};
+		}
+
+		push @URLS, $url_to_use;
 
                 #escape HASH and AT symbols in the urls so that regexp for user and hashtag insertion don't change them
                 $orig_uri =~ s/#/ESCAPED_HASH/g;
                 $orig_uri =~ s/\@/ESCAPED_AT/g;
 
-                return '<a href="'.$orig_uri.'">'.$orig_uri.'</a>';
+                return '<a href="'.$url_to_use.'">'.$orig_uri.'</a>';
         });
         $finder->find(\$expanded_message);
 
