@@ -233,7 +233,7 @@ sub write_to_filehandle
 
 	my $fh = $self->{files}->{$type}->{filehandle};
 
-	if ($type eq 'json' && !$self->{files}->{$type}->{count}) #if it's not the first json entry
+	if ($type eq 'json' && $self->{files}->{$type}->{count}) #if it's not the first json entry
 	{
 		print $fh ",\n"; #record separator
 	}
