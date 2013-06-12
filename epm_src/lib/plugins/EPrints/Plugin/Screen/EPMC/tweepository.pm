@@ -49,6 +49,7 @@ Number::Bytes::Human
 Storable
 URI
 URI::Find
+Net::Twitter::Lite::WithAPIv1_1
 /;
 
 	my $evalstring;
