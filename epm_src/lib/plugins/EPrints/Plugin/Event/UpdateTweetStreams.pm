@@ -9,12 +9,14 @@ use URI;
 use LWP::UserAgent;
 use JSON;
 use Encode qw(encode);
+use Net::Twitter::Lite::WithAPIv1_1;
 
 my $RETRIES = 5;
 
 sub action_update_tweetstreams
 {
 	my ($self) = @_;
+	my $FEEDS_IN_PARALLEL = 3;
 
 	$self->{log_data}->{start_time} = scalar localtime time;
 
@@ -24,10 +26,10 @@ sub action_update_tweetstreams
 		return;
 	}
 
-	$self->create_lock;
+	my $nt = $self->connect_to_twitter;
+	return unless $nt;
 
-	my $FEEDS_IN_PARALLEL = 3;
-	my $api_url = 'http://search.twitter.com/search.json';
+	$self->create_lock;
 
 	my $active_tweetstreams = $self->active_tweetstreams;
 	my $queue_items = {};
@@ -57,161 +59,85 @@ sub action_update_tweetstreams
 		#remove item from the front of the queue
 		my $current_item = shift @queue;
 
-		#prepare queue item
-		$current_item->{retries} = $RETRIES;
-
-		#query Twitter API
-		my $url = URI->new( $api_url );
-		$url->query_form( %{$current_item->{search_params}} );
-		my $response;
-
-		#twitter gets bogged down sometimes
-		#retry when it's a 503 (or other 500) response code
-		for (1..5)
+		my $max_http_retries = 5;
+		RETRY: foreach my $retries (1..$max_http_retries)
 		{
-			$response = $ua->get($url);
+			my $results;
 
-			my $code = $response->code;
-
-			last unless $code >=500; #500 codes indicate server issues.
-			sleep 10;
-		}
-
-		my $json_tweets;
-		if ($response->is_success)
-		{
-			$json_tweets = encode('utf-8',$response->decoded_content);
-		}
-		else
-		{
-			#handle failure
-			my $code = $response->code;
-			if ($code == 403) #forbidden -- probably because we've gone back too many pages on this item
+			if (!$nt->authorized)
 			{
-				#We've got all we can.  Move onto the next and let this one fall off of the queue
-				$self->{log_data}->{tweetstreams}->{$current_item->{id}}->{end_state} = 'No more results';
-				next ITEM;
-			}
+				$nt = $self->connect_to_twitter;
 
-			#otherwise, assume we've gone over the API limit, and halt *all* requests
-			print STDERR 'Got failure status, assuming API limit reached: ', $response->status_line, "\n";
-			$self->{log_data}->{end_state} = 'BAD RESPONSE FROM TWITTER: ' . $response->status_line;
-			last ITEM; 
-		}
-
-		#convert JSON to perl structure
-		my $json = JSON->new->allow_nonref;
-		my $tweets = eval { $json->utf8()->decode($json_tweets); };
-		if ($@)
-		{
-			if ($current_item->{retries})
-			{
-				#requeue X times (where X is the number of retries)
-				$current_item->{retries}--;
-				push @queue, $current_item
-			}
-			else
-			{
-				#else let this one fall off the end of the queue (i.e. don't repush onto queue)
-				$self->{log_data}->{tweetstreams}->{$current_item->{id}}->{end_state} = 'PARSE ERROR';
-				print STDERR "Couldn't decode json: $@\n";
-			}
-			next ITEM;
-		}
-
-		if (!scalar @{$tweets->{results}})#if an empty page of results, assume no more tweets
-		{
-			$self->{log_data}->{tweetstreams}->{$current_item->{id}}->{end_state} = 'No more results';
-			next ITEM;
-		}
-		my $update_finished;
-
-		#create a tweet dataobj for each tweet and store the objid in the queue item
-		TWEET_IN_UPDATE: foreach my $tweet (@{$tweets->{results}})
-		{
-
-			$self->{log_data}->{tweets_processed}++; #global count
-			$self->{log_data}->{tweetstreams}->{$current_item->{id}}->{earliest_seen} = $tweet->{created_at}; #keep updating this as we walk backwards, though it
-			#only need to set these once
-			if (!$self->{log_data}->{tweetstreams}->{$current_item->{id}}->{latest_seen})
-			{
-				$self->{log_data}->{tweetstreams}->{$current_item->{id}}->{latest_seen} = $tweet->{created_at};
-				$self->{log_data}->{tweetstreams}->{$current_item->{id}}->{search_string} = $current_item->{search_params}->{q};
-			}
-
-			$update_finished = 0;
-			if (!$current_item->{search_params}->{max_id})
-			{
-				$current_item->{search_params}->{max_id} = $tweet->{id}; #highest ID, for consistant paging
-			}
-			$current_item->{orderval} = $tweet->{id}; #lowest processed so far, for queue ordering
-
-			#check to see if we already have a tweet with this twitter id in this repository
-			my $tweetobj = EPrints::DataObj::Tweet::tweet_with_twitterid($self->repository,$tweet->{id});
-			if (!defined $tweetobj)
-			{
-				$tweetobj = EPrints::DataObj::Tweet->create_from_data(
-					$self->repository,
-					{
-						twitterid => $tweet->{id},
-						json_source => $tweet,
-						tweetstreams => $current_item->{tweetstreamids},
-					} 
-				);
-				$created_this_session->{$tweet->{id}} = 1;
-
-				$self->{log_data}->{tweets_created}++; #global_count
-				$self->{log_data}->{tweetstreams}->{$current_item->{id}}->{tweets_created}++;
-			}
-			#an existing tweet harvested is either a crossover with another stream, or it's the last tweet from the previous update.
-			#add and log if it isn't the last from the previous update.
-			else
-			{
-				#compare $current_item->{tweetstreams} to $tweetobj->value('tweetstreams') if the tweetobj wasn't created in this session
-				#If they differ, then at least one of the tweetstreams needs to have this tweet added to it.
-				#If they're identical, then we've gone back as far as we need to go.
-				if (
-					!$created_this_session->{$tweetobj->value('twitterid')} and
-					(
-						join(',',sort(@{$current_item->{tweetstreamids}})) eq
-						join(',',sort(@{$tweetobj->value('tweetstreams')}))
-					)
-				)
+				if (!$nt)
 				{
-					$update_finished = 1;
+					$self->{log_data}->{end_state} = 'Couldn\'t reconnect to twitter ';
+					last ITEM;
+				}
+			} 
+
+			eval {
+				$results = $nt->search($current_item->{search_params});
+			};
+			if ( my $err = $@ ) {
+				if (ref($err) and $err->isa('Net::Twitter::Error'))
+				{
+	#make decisions based on HTTP response codes
+					my $code = $err->code;
+					if ($code == 403) #forbidden -- probably because we've gone back too many pages on this item
+					{
+						#We've got all we can.  Move onto the next and let this one fall off of the queue
+						$self->{log_data}->{tweetstreams}->{$current_item->{id}}->{end_state} = 'No more results';
+						next ITEM;
+					}
+
+	
+					#if we got five errors in a row (twitter gets bogged down sometimes)
+					if ($retries == $max_http_retries)
+					{
+						my $msg = "HTTP Response Code: " . $err->code . "\n" .
+							  "HTTP Message......: " . $err->message . "\n" .
+							  "Twitter error.....: " . $err->error . "\n";
+
+						#otherwise, stop trying to get this tweetstream
+						$self->{log_data}->{tweetstreams}->{$current_item->{id}}->{end_state} = 'BAD RESPONSE FROM TWITTER: ' . $msg;
+						next ITEM;
+					}
 				}
 				else
 				{
-					$tweetobj->add_to_tweetstreamid($current_item->{tweetstreamids});
-					$self->{log_data}->{tweetstreams}->{$current_item->{id}}->{tweets_added}++;
+					if ($retries == $max_http_retries)
+					{
+						#unexpected error
+						$self->{log_data}->{end_state} = 'Unexpected Error ' . $@;;
+						last ITEM;
+					}
 				}
 			}
-
-			#only the first in the update (id = max_id) doesn't have a following tweet
-			#this will also set the flag on the first item from the previous update.
-			if ($current_item->{search_params}->{max_id} != $tweet->{id})
+			else
 			{
-				$tweetobj->set_next_in_tweetstream($current_item->{tweetstreamids});
+				if (!scalar @{$results->{statuses}})#if an empty page of results, assume no more tweets
+				{
+					$self->{log_data}->{tweetstreams}->{$current_item->{id}}->{end_state} = 'No more results';
+					next ITEM;
+				}
+				$self->process_results($created_this_session, $current_item, $results);
+				#no errors, so stop retrying
+				last RETRY;
 			}
-			$tweetobj->commit;
 
-			if ($update_finished) #the one we're considering is the same or younger than the oldest in our stream
-			{
-				$self->{log_data}->{tweetstreams}->{$current_item->{id}}->{end_state} = 'Update Complete';
-				last TWEET_IN_UPDATE;
-			}
+
+			sleep 10;
 		}
 
+#paging needs to be updated
 		#request the next page of results (unless we've reached a previously seen item)
-		if ($current_item->{search_params}->{page})
+		if ($current_item->{search_params}->{max_id})
 		{
-			$current_item->{search_params}->{page}++;
+			$current_item->{search_params}->{max_id}++;
 		}
-		else
-		{
-			$current_item->{search_params}->{page} = 2;
-		}
-		push @queue, $current_item unless $update_finished;
+
+		#a bit of a hack, but if the tweetstream has finished harvesting, it will set the end_state log data
+		push @queue, $current_item unless $self->{log_data}->{tweetstreams}->{$current_item->{id}}->{end_state};
 		
 	}
 
@@ -221,6 +147,109 @@ sub action_update_tweetstreams
 	$self->write_log;
 	$self->remove_lock
 }
+
+sub process_results
+{
+	my ($self, $created_this_session, $current_item, $results) = @_;
+
+	my $update_finished;
+
+	#create a tweet dataobj for each tweet and store the objid in the queue item
+	TWEET_IN_UPDATE: foreach my $tweet (@{$results->{statuses}})
+	{
+
+		$self->{log_data}->{tweets_processed}++; #global count
+		$self->{log_data}->{tweetstreams}->{$current_item->{id}}->{earliest_seen} = $tweet->{created_at}; #keep updating this as we walk backwards, though it
+		#only need to set these once
+		if (!$self->{log_data}->{tweetstreams}->{$current_item->{id}}->{latest_seen})
+		{
+			$self->{log_data}->{tweetstreams}->{$current_item->{id}}->{latest_seen} = $tweet->{created_at};
+			$self->{log_data}->{tweetstreams}->{$current_item->{id}}->{search_string} = $current_item->{search_params}->{q};
+		}
+
+		$update_finished = 0;
+
+		$current_item->{search_params}->{max_id} = $tweet->{id}; #highest ID, for consistant paging
+		$current_item->{orderval} = $tweet->{id}; #lowest processed so far, for queue ordering
+
+		#check to see if we already have a tweet with this twitter id in this repository
+		my $tweetobj = EPrints::DataObj::Tweet::tweet_with_twitterid($self->repository,$tweet->{id});
+		if (!defined $tweetobj)
+		{
+			$tweetobj = EPrints::DataObj::Tweet->create_from_data(
+				$self->repository,
+				{
+					twitterid => $tweet->{id},
+					json_source => $tweet,
+					tweetstreams => $current_item->{tweetstreamids},
+				} 
+			);
+			$created_this_session->{$tweet->{id}} = 1;
+
+			$self->{log_data}->{tweets_created}++; #global_count
+			$self->{log_data}->{tweetstreams}->{$current_item->{id}}->{tweets_created}++;
+		}
+		#an existing tweet harvested is either a crossover with another stream, or it's the last tweet from the previous update.
+		#add and log if it isn't the last from the previous update.
+		else
+		{
+			#compare $current_item->{tweetstreams} to $tweetobj->value('tweetstreams') if the tweetobj wasn't created in this session
+			#If they differ, then at least one of the tweetstreams needs to have this tweet added to it.
+			#If they're identical, then we've gone back as far as we need to go.
+			if (
+				!$created_this_session->{$tweetobj->value('twitterid')} and
+				(
+					join(',',sort(@{$current_item->{tweetstreamids}})) eq
+					join(',',sort(@{$tweetobj->value('tweetstreams')}))
+				)
+			)
+			{
+				$update_finished = 1;
+			}
+			else
+			{
+				$tweetobj->add_to_tweetstreamid($current_item->{tweetstreamids});
+				$self->{log_data}->{tweetstreams}->{$current_item->{id}}->{tweets_added}++;
+			}
+		}
+
+		#only the first in the update (id = max_id) doesn't have a following tweet
+		#this will also set the flag on the first item from the previous update.
+		if ($current_item->{search_params}->{max_id} != $tweet->{id})
+		{
+			$tweetobj->set_next_in_tweetstream($current_item->{tweetstreamids});
+		}
+		$tweetobj->commit;
+
+		if ($update_finished) #the one we're considering is the same or younger than the oldest in our stream
+		{
+			$self->{log_data}->{tweetstreams}->{$current_item->{id}}->{end_state} = 'Update Complete';
+			last TWEET_IN_UPDATE;
+		}
+	}
+}
+
+sub connect_to_twitter
+{
+	my ($self) = @_;
+
+	my %nt_args = ( traits => [qw/API::RESTv1_1/] );
+	foreach (qw( consumer_key consumer_secret access_token access_token_secret ))
+	{
+		$nt_args{$_} = $self->repository->config('twitter_oauth',$_);
+	}
+
+	my $nt = Net::Twitter::Lite::WithAPIv1_1->new( %nt_args );
+
+#handle this error properly;
+	if (!$nt->authorized)
+	{
+		$self->repository->log( (ref $self) . " Net::Twitter Oauth issue\n");
+		return undef;
+	}
+	return $nt;
+}
+
 
 #return a value or an empty string
 sub v
@@ -279,6 +308,8 @@ sub create_queue_item
 {
 	my ($repo, $ds, $tweetstream, $queue_items) = @_;
 
+	return unless $tweetstream->is_set('search_string');
+
 	my $search_string = $tweetstream->get_value('search_string');
 	my $geocode = '';
 	$geocode = $tweetstream->get_value('geocode') if $tweetstream->is_set('geocode');
@@ -296,10 +327,9 @@ sub create_queue_item
 			id => $tweetstream->id, #id for logging
 			search_params => {
 				q => $search_string,
-				rpp => 100,
+				count => 100,
 				include_entities => 1,
-	#			max_id => set to first ID we get -- used for accurate paging
-	#			page => set to current page + 1 when this item is requeued
+	#			max_id => set to the ID of every tweet we process for paging
 			},
 			tweetstreamids => [ $tweetstream->id ], #for when two streams have identical search strings
 			retries => $RETRIES, #if there's a failure, we'll try again.

@@ -591,6 +591,20 @@ sub process_json
 		}
 
 	}
+
+	#API v1.1 hacks
+	if ($tweet_data->{metadata}->{iso_language_code})
+	{
+		$self->set_value('iso_language_code', $tweet_data->{metadata}->{iso_language_code});
+	}
+	if ($tweet_data->{user}->{screen_name})
+	{
+		$self->set_value('from_user', $tweet_data->{user}->{screen_name});
+		$self->set_value('from_user_id', $tweet_data->{user}->{id});
+		$self->set_value('profile_image_url', $tweet_data->{user}->{profile_image_url});
+	}
+
+
 	#convert created at to eprints timestame
 	my $time = str2time($tweet_data->{created_at});
 	$self->set_value('created_at',EPrints::Time::get_iso_timestamp($time));
