@@ -683,7 +683,7 @@ sub get_old_or_new
 sub query_to_arrayref
 {
 	my ($self, $sth) = @_;
-	my $r;
+	my $r = [];
 
 	while (my $row = $sth->fetchrow_arrayref)
 	{
