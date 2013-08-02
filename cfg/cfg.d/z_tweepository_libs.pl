@@ -135,23 +135,30 @@ $c->add_dataset_field( 'tweet', {
 #a list of tweetstreams to which this tweet belongs
 $c->add_dataset_field( 'tweet', { name=>"tweetstreams", type=>"itemref", datasetid=> 'tweetstream', required => 1, multiple => 1 }, );
 
-#the tweetstreams in which this has a directly following tweet
-#useful for (at least) detecting missing tweets in the feed.
-$c->add_dataset_field( 'tweet', { name=>"has_next_in_tweetstreams", type=>"itemref", datasetid=> 'tweetstream', required => 1, multiple => 1 }, );
 #a flag to prevent enrichment being done more than once on commit
 $c->add_dataset_field( 'tweet', { name=>"newborn", type=>"boolean"}, );
 
 
 
-
+#system metadata
 $c->add_dataset_field( 'tweetstream', { name=>"tweetstreamid", type=>"counter", required=>1, import=>0, can_clone=>1, sql_counter=>"tweetstreamid" }, );
 $c->add_dataset_field( 'tweetstream', { name=>"userid", type=>"itemref", datasetid=>"user", required=>1 }, );
+$c->add_dataset_field( 'tweetstream', { name =>"status", type => 'set', options => [ 'active', 'archived' ] }, required=>1 );
+
+#core metadata (set by user)
 $c->add_dataset_field( 'tweetstream', { name=>"search_string", type=>"text", required=>"yes" }, );
 $c->add_dataset_field( 'tweetstream', { name=>"geocode", type=>"text" }, );
 $c->add_dataset_field( 'tweetstream', { name=>"expiry_date", type=>"date", required=>"yes" }, );
-$c->add_dataset_field( 'tweetstream', { name=>"tweet_count", type=>'bigint', volatile=>1}, );
+$c->add_dataset_field( 'tweetstream', { name => "title", type=>'text' }, );
+$c->add_dataset_field( 'tweetstream', { name => "abstract", type=>'longtext' }, );
+$c->add_dataset_field( 'tweetstream', { name => "project_title", type=>'text' }, );
+
+#state metadata (counts and stuff to avoid database queries)
+$c->add_dataset_field( 'tweetstream', { name=>"tweet_count", type=>'bigint', volatile=>1} );
 $c->add_dataset_field( 'tweetstream', { name=>"oldest_tweets", type=>"itemref", datasetid=>'tweet', multiple => 1, render_value => 'EPrints::DataObj::TweetStream::render_tweet_field' }, );
 $c->add_dataset_field( 'tweetstream', { name=>"newest_tweets", type=>"itemref", datasetid=>'tweet', multiple => 1, render_value => 'EPrints::DataObj::TweetStream::render_tweet_field' }, );
+
+
 #digest information store anything that appears more than once.
 $c->add_dataset_field( 'tweetstream', { 
 	name => "top_hashtags", type=>"compound", multiple=>1,
@@ -230,11 +237,6 @@ $c->add_dataset_field( 'tweetstream', { name => "frequency_values", type => 'com
 $c->add_dataset_field( 'tweetstream', { name => "hashtags_ncols", type=>'int', volatile => '1' }, );
 $c->add_dataset_field( 'tweetstream', { name => "tweetees_ncols", type=>'int', volatile => '1' }, );
 $c->add_dataset_field( 'tweetstream', { name => "urls_from_text_ncols", type=>'int', volatile => '1' }, );
-
-
-$c->add_dataset_field( 'tweetstream', { name => "title", type=>'text' }, );
-$c->add_dataset_field( 'tweetstream', { name => "abstract", type=>'longtext' }, );
-$c->add_dataset_field( 'tweetstream', { name => "project_title", type=>'text' }, );
 
 
 #fields used to render things on the abstract page
@@ -475,44 +477,6 @@ sub remove
 		$self->get_value( "tweetid" ) );
 	
 	return( $success );
-}
-
-sub add_to_tweetstream
-{
-	my ($self, $tweetstream) = @_;
-	$self->add_to_tweetstreamid($tweetstream->id);
-}
-
-#takes a scalar or hashref
-sub add_to_tweetstreamid
-{
-	my ($self, $tweetstreamid) = @_;
-
-	$self->set_value('tweetstreams', $self->dedup_add($self->value('tweetstreams'),$tweetstreamid));
-}
-
-#is there a break in the stream?
-sub has_next_in_tweetstream
-{
-	my ($self, $tweetstreamid) = @_;
-
-	return 0 unless $self->is_set('has_next_in_tweetstreams');
-
-	foreach my $id (@{$self->value('has_next_in_tweetstreams')})
-	{
-		return 1 if $tweetstreamid == $id;
-	}
-
-	return 0;
-}
-
-
-#takes a scalar or arrayref of tweetstream ids and sets them to show there is no break in the tweetstream between this and the next
-sub set_next_in_tweetstream
-{
-	my ($self, $tweetstreamid) = @_;
-
-	$self->set_value('has_next_in_tweetstreams', $self->dedup_add($self->value('has_next_in_tweetstreams'),$tweetstreamid));
 }
 
 #takes an array ref and a (scalar or array ref) and returs an arrayref containing only one of each value
@@ -851,6 +815,95 @@ use Date::Calc qw/ Week_of_Year Delta_Days Add_Delta_Days /;
 use File::Path qw/ make_path /;
 
 use strict;
+
+
+#add an arrayref of tweet objects to this tweetstream
+#you must commit the object after you call add_tweets
+sub add_tweets
+{
+	my ($self, $tweets) = @_;
+
+	my $repo = $self->repository;
+	my $tweet_ds = $repo->dataset('tweet');
+
+	#note oldest_tweets set by update_tweetstream_abstracts
+	my $newest_tweets = $self->value('newest_tweets');
+	my $oldest_new_tweet = $tweet_ds->dataobj($newest_tweets->[0]);
+	my $lowest_highid = $oldest_new_tweet->value('twitterid');
+
+	my $newest_tweets_refresh_needed = 0;
+	foreach my $tweet (@{tweets})
+	{
+		$self->_add_tweet($tweet);
+
+		if ($tweet->value('twitterid' > $lowest_highid))
+		{
+			$newest_tweets_refresh_needed = 1;
+		}
+	}
+
+	#update the newest tweets
+	if ($newest_tweets_refresh_needed)
+	{
+		$self->_update_newest_tweets($tweets);
+		$self->commit;
+	}
+}
+
+sub _update_newest_tweets
+{
+	my ($self, $new_tweets) = @_;
+
+	my $repo = $self->repository;
+	my $tweet_ds = $repo->dataset('tweet');
+
+	#note oldest_tweets set by update_tweetstream_abstracts
+	my $newest_tweetids = $self->value('newest_tweets');
+	
+	my $new_newest_tweets = [];
+
+	foreach my $tweet (@{$new_tweets})
+	{
+		push @{$new_newest_tweets}, $tweet;
+	}
+
+	foreach my $tweetid (@{$newest_tweetids})
+	{
+		my $tweet = $tweet_ds->dataobj($tweetid);
+		push @{$new_newest_tweets}, $tweet if $tweet;
+	}
+
+	my $n_newest = $repository->config('tweetstream_tweet_renderopts','n_newest');
+
+	$new_newest_tweets = sort {$a->value('twitterid') <=> $b->value('twitterid')} @{$new_newest_tweets};
+	@{$new_newest_tweets} = $new_newest_tweets->[-$n_newest..-1]; #get highest IDs (RHS of the array);
+
+	$newest_tweetids = [];
+	foreach my $tweet (@{$new_newest_tweets})
+	{
+		push @{$newest_tweetids}, $tweet->value('tweetid');
+	}
+
+	$self->set_value('newest_tweets', $new_newest_tweets);
+
+
+}
+
+#not intended to be called, use add_tweets instead
+sub _add_tweet
+{
+	my ($self, $tweet) = @_;
+
+	#don't add if it's already in this tweetstream
+	my $tsids = $tweet->value('tweetstreams');
+	foreach my $tsid (@{$tsids})
+	{
+		return if $tsid = $self->value('tweetsreamid');
+	}
+	push @{$tsids}, $self->value('tweetstreamid');
+	$tweet->set_value('tweetstreamids', $tsids);
+	$tweet->commit;
+}
 
 
 sub pending_package_request
@@ -1235,6 +1288,8 @@ sub commit
 
 	$self->update_triggers();
 
+	$self->set_value('status', 'active') if !$self->is_set('status');
+
 	if (!$self->is_set('title') && $self->is_set('search_string'))
 	{
 		#sensible default
@@ -1251,6 +1306,21 @@ sub commit
 	my $success = $self->SUPER::commit( $force );
 	
 	return( $success );
+}
+
+
+sub highest_twitterid
+{
+	my ($self) = @_l
+
+	my $repo = $self->repository;
+	my $tweet_ds = $repo->dataset('tweet');
+
+	my $newest_tweetids = $self->value('newest_tweets');
+	my $newest_tweet = $tweet_ds->dataobj($newest_tweetid->[-1]);
+
+	return $newest_tweet->value('twitterid') if $newest_tweet;
+	return 0;
 }
 
 sub highest_tweetid
