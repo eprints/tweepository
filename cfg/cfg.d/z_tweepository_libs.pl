@@ -832,11 +832,11 @@ sub add_tweets
 	my $lowest_highid = $oldest_new_tweet->value('twitterid');
 
 	my $newest_tweets_refresh_needed = 0;
-	foreach my $tweet (@{tweets})
+	foreach my $tweet (@{$tweets})
 	{
 		$self->_add_tweet($tweet);
 
-		if ($tweet->value('twitterid' > $lowest_highid))
+		if ($tweet->value('twitterid') > $lowest_highid)
 		{
 			$newest_tweets_refresh_needed = 1;
 		}
@@ -860,31 +860,31 @@ sub _update_newest_tweets
 	#note oldest_tweets set by update_tweetstream_abstracts
 	my $newest_tweetids = $self->value('newest_tweets');
 	
-	my $new_newest_tweets = [];
+	my @new_newest_tweets;
 
 	foreach my $tweet (@{$new_tweets})
 	{
-		push @{$new_newest_tweets}, $tweet;
+		push @new_newest_tweets, $tweet;
 	}
 
 	foreach my $tweetid (@{$newest_tweetids})
 	{
 		my $tweet = $tweet_ds->dataobj($tweetid);
-		push @{$new_newest_tweets}, $tweet if $tweet;
+		push @new_newest_tweets, $tweet if $tweet;
 	}
 
-	my $n_newest = $repository->config('tweetstream_tweet_renderopts','n_newest');
+	my $n_newest = $repo->config('tweetstream_tweet_renderopts','n_newest');
 
-	$new_newest_tweets = sort {$a->value('twitterid') <=> $b->value('twitterid')} @{$new_newest_tweets};
-	@{$new_newest_tweets} = $new_newest_tweets->[-$n_newest..-1]; #get highest IDs (RHS of the array);
+	my @sorted_new_newest_tweets = sort {$a->value('twitterid') <=> $b->value('twitterid')} @new_newest_tweets;
+	@new_newest_tweets = @sorted_new_newest_tweets[(1-$n_newest)..-1]; #get highest IDs (RHS of the array);
 
 	$newest_tweetids = [];
-	foreach my $tweet (@{$new_newest_tweets})
+	foreach my $tweet (@new_newest_tweets)
 	{
 		push @{$newest_tweetids}, $tweet->value('tweetid');
 	}
 
-	$self->set_value('newest_tweets', $new_newest_tweets);
+	$self->set_value('newest_tweets', $newest_tweetids);
 
 
 }
@@ -898,7 +898,7 @@ sub _add_tweet
 	my $tsids = $tweet->value('tweetstreams');
 	foreach my $tsid (@{$tsids})
 	{
-		return if $tsid = $self->value('tweetsreamid');
+		return if $tsid = $self->value('tweetstreamid');
 	}
 	push @{$tsids}, $self->value('tweetstreamid');
 	$tweet->set_value('tweetstreamids', $tsids);
@@ -1311,13 +1311,15 @@ sub commit
 
 sub highest_twitterid
 {
-	my ($self) = @_l
+	my ($self) = @_;
+
+	return 0 unless $self->is_set('newest_tweets');
 
 	my $repo = $self->repository;
 	my $tweet_ds = $repo->dataset('tweet');
 
 	my $newest_tweetids = $self->value('newest_tweets');
-	my $newest_tweet = $tweet_ds->dataobj($newest_tweetid->[-1]);
+	my $newest_tweet = $tweet_ds->dataobj($newest_tweetids->[-1]);
 
 	return $newest_tweet->value('twitterid') if $newest_tweet;
 	return 0;

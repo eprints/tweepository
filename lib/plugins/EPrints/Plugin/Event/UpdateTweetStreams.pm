@@ -15,10 +15,24 @@ my $HTTP_RETRIES = 5; #for network errors
 my $QUERY_RETRIES = 5; #for API errors
 my $QUERIES_BEFORE_RATE_CHECK = 100; #because one query may use more than one of the quota if it's complex
 
+sub output_status
+{
+	my ($self, @message) = @_;
+
+	return unless $self->{verbose};
+
+	my $message = join('', @message);
+	$message =~ s/\n/\n\t/g; #indent multiple lines
+
+	print scalar localtime time,' -- ', $message, "\n";
+}
+
 
 sub action_update_tweetstreams
 {
-	my ($self) = @_;
+	my ($self, $verbose) = @_;
+
+	$self->{verbose} = 1 if $verbose;
 
 	if ($self->is_locked)
 	{
@@ -36,12 +50,18 @@ sub action_update_tweetstreams
 		return;
 	}
 
+	$self->output_status('Connected to Twitter');
+
 	my $limit = get_search_rate_limit($nt); 
+
+	$self->output_status("Initial Rate Limit: $limit");
 
 	my $active_tweetstreams = $self->active_tweetstreams;
 	my $queue_items = {};
 	$active_tweetstreams->map( \&EPrints::Plugin::Event::UpdateTweetStreams::create_queue_item, $queue_items);
 	my @queue = values %{$queue_items};
+
+	$self->output_status('Queue has ' . scalar @queue . ' items');
 
 	QUERYSET: while ($limit > 0)
 	{
@@ -51,6 +71,7 @@ sub action_update_tweetstreams
 		{
 			if (scalar @queue ==0)
 			{
+				$self->output_status('Update queue emptied');
 				$self->{log_data}->{end_state} = 'Update queue emptied';
 				last QUERYSET;
 			}
@@ -63,14 +84,15 @@ sub action_update_tweetstreams
 
 			RETRY: foreach my $retry (1..$HTTP_RETRIES)
 			{
+				$self->output_status('Attempting to query: ' . $current_item->{search_params}->{q});
 				if (!$nt->authorized)
 				{
+					$self->output_status('Oops, not authorise.  Reconnecting....');
 					sleep 10;
 					$nt = $self->connect_to_twitter;
 					next RETRY; #try again
 				}
 
-				$limit --; #keep track
 				eval {
 					$results = $nt->search($current_item->{search_params});
 				};
@@ -81,24 +103,27 @@ sub action_update_tweetstreams
 					#handle response codes -- see https://dev.twitter.com/docs/error-codes-responses
 					if (ref $err and $err->isa('Net::Twitter::Error'))
 					{
-						$code = $err->code;
-						if ($code == 403) #no more data for this stream -- we've gone back as far as we can
+						if ($err->code == 403) #no more data for this stream -- we've gone back as far as we can
 						{
+							$self->output_status('Err 403: No more results for this search');
 							$self->{log_data}->{tweetstreams}->{$current_item->{id}}->{end_state} = 'No More Results (403, went back as far as possible)';
 							last RETRY;
 						}
-						elsif ($code == 429) #rate limit reached -- stop all requests
+						elsif ($err->code == 429) #rate limit reached -- stop all requests
 						{
+							$self->output_status('ERR 429: API limit exceeded');
 							$limit = -1; #we've gone over the limit
 							last RETRY;
 						}
 					}
 
+					output_status('Uncategorised error, retrying...');
 					sleep 10;
 					next RETRY;
 				}
 				else
 				{
+					$self->output_status('Results successfully retrieved');
 					$results_flag = 1;
 					last RETRY; #we have our results
 				}
@@ -107,23 +132,44 @@ sub action_update_tweetstreams
 			#process results and put the current item at the end of the queue (if appropriate)
 			if ($results_flag)
 			{
+				my $results_count = scalar @{$results->{statuses}};
 				#no errors, process the results
-				if (!scalar @{$results->{statuses}})#if an empty page of results, assume no more tweets
+				if ($results_count < 1)#if an empty page of results, assume no more tweets
 				{
+					$self->output_status('Empty Results Set');
 					$self->{log_data}->{tweetstreams}->{$current_item->{id}}->{end_state} = 'Update Completed (Hooray)';
 				}
 				else
 				{
+					$self->output_status('Retrieved ', scalar @{$results->{statuses}}, ' statuses');
 					$self->process_results($current_item, $results);
 
-					push @queue, $current_item;
+					$self->output_status('Tweets created');
+
+					#if less than a page of data, assume we've reached the end of the results
+					if ($results_count < $current_item->{search_params}->{count})
+					{
+						$self->output_status('Less than ' . $current_item->{search_params}->{count} . ' results -- not requeueing');
+						$self->{log_data}->{tweetstreams}->{$current_item->{id}}->{end_state} = 'Update Completed (Hooray)';
+					}
+					else
+					{ 
+						$self->output_status('Full results set -- requeueing');
+						#requeue the current item
+
+						###############
+						#REQUEUE ITEM##
+						###############
+						push @queue, $current_item;
+					}
 				}
 			}
 			else
 			{
-				#we tried N times, and failed -- record 
+				#we tried N times, and failed -- do not re-queue the current item
 				if (ref($err) and $err->isa('Net::Twitter::Error'))
 				{
+
 					$self->{log_data}->{tweetstreams}->{$current_item->{id}}->{end_state} =
 						"BAD RESPONSE FROM TWITTER:\n" .
 						"\tHTTP Response Code: " . $err->code . "\n" .
@@ -135,22 +181,19 @@ sub action_update_tweetstreams
 					$self->{log_data}->{tweetstreams}->{$current_item->{id}}->{end_state} = 'Unexpected Error: ' . $@;
 					#do not re-queue the current item
 				}
+				$self->output_status($self->{log_data}->{tweetstreams}->{$current_item->{id}}->{end_state});
 			}
 
 		}
 		#update the limit, just in case.
-		$limit = get_search_rate_limit($nt); 
+		$limit = get_search_rate_limit($nt);
+		$self->output_status("Updated limit.  It's now $limit");
 	}
 
-
-		#a bit of a hack, but if the tweetstream has finished harvesting, it will set the end_state log data
-		push @queue, $current_item unless $self->{log_data}->{tweetstreams}->{$current_item->{id}}->{end_state};
-		
-	}
-
+	$self->output_status("Updating ended");
 	$self->{log_data}->{end_time} = scalar localtime time;
 	$self->write_log;
-	$self->remove_lock
+	$self->remove_lock;
 }
 
 sub process_results
@@ -160,16 +203,14 @@ sub process_results
 	my $repo = $self->repository;
 	my $tweetstream_ds = $repo->dataset('tweetstream');
 
-	my $update_finished = 0;
-
 	my $tweet_dataobjs = [];
 
 	#create a tweet dataobj for each tweet and store the objid in the queue item
 	TWEET_IN_UPDATE: foreach my $tweet (@{$results->{statuses}})
 	{
-
 		$self->{log_data}->{tweets_processed}++; #global count
 		$self->{log_data}->{tweetstreams}->{$current_item->{id}}->{earliest_seen} = $tweet->{created_at}; #keep updating this as we walk backwards, though it
+
 		#only need to set these once
 		if (!$self->{log_data}->{tweetstreams}->{$current_item->{id}}->{latest_seen})
 		{
@@ -177,14 +218,20 @@ sub process_results
 			$self->{log_data}->{tweetstreams}->{$current_item->{id}}->{search_string} = $current_item->{search_params}->{q};
 		}
 
-		$update_finished = 0;
-
-		$current_item->{search_params}->{max_id} = $tweet->{id} if $tweet->{id} < $current_item->{search_params}->{max_id}; #lowest ID we've seen for the max_id parameter (used for paging)
+		#keep track of the lowest twitterid we've seen for paging
+		if (
+			!$current_item->{search_params}->{max_id}
+			|| $tweet->{id} < $current_item->{search_params}->{max_id}
+		)
+		{
+			$current_item->{search_params}->{max_id} = $tweet->{id};
+		}
 
 		#check to see if we already have a tweet with this twitter id in this repository
 		my $tweetobj = EPrints::DataObj::Tweet::tweet_with_twitterid($repo, $tweet->{id});
 		if (!defined $tweetobj)
 		{
+			$self->output_status('Creating Tweet Object');
 			$tweetobj = EPrints::DataObj::Tweet->create_from_data(
 				$self->repository,
 				{
@@ -193,21 +240,31 @@ sub process_results
 					tweetstreams => $current_item->{tweetstreamids},
 				} 
 			);
+			$tweetobj->commit; #will enrich the tweet
 
 			$self->{log_data}->{tweets_created}++; #global_count
 			$self->{log_data}->{tweetstreams}->{$current_item->{id}}->{tweets_created}++;
 		}
+		else
+		{
+			$self->{log_data}->{tweetstreams}->{$current_item->{id}}->{tweets_added}++;
+			$self->output_status('Tweet Object Exists');
+		}
 
-		#safe to do because we're updating in pages of 100
-		push @{$tweet_dataobjs}, $tweet;
+		#safe to do because we're updating in pages of 100 -- we won't run out of memory
+		push @{$tweet_dataobjs}, $tweetobj;
 	}
+
+	$self->output_status('Created all tweet objects');
 
 	#set max_id for paging
 	$current_item->{search_params}->{max_id}--; #set it to one lower to an ID we have previously seen for paging
 
-	foreach my $tweetstreamid ($current_item->{tweetstreamids})
+	foreach my $tweetstreamid (@{$current_item->{tweetstreamids}})
 	{
-		my $tweetstream = $tweet_ds->dataobj($tweetstreamid);
+		my $tweetstream = $tweetstream_ds->dataobj($tweetstreamid);
+		die ("UNEXPECTED CRITICAL ERROR: couldn't create tweetstream $tweetstreamid") unless $tweetstream;
+
 		$tweetstream->add_tweets($tweet_dataobjs);
 	}
 }
@@ -285,12 +342,15 @@ sub create_queue_item
 	my ($repo, $ds, $tweetstream, $queue_items) = @_;
 
 	return unless $tweetstream->is_set('search_string');
-	return if $tweetstream->value('status') eq 'archived'; #should never be true, but let's be explicit.
+	return if (
+		$tweetstream->is_set('status')
+		&& $tweetstream->value('status') eq 'archived'
+	);  #should never be true, but let's be explicit.
 
-	my $search_string = $tweetstream->get_value('search_string');
+	my $search_string = $tweetstream->value('search_string');
 
 	my $geocode = '';
-	$geocode = $tweetstream->get_value('geocode') if $tweetstream->is_set('geocode');
+	$geocode = $tweetstream->value('geocode') if $tweetstream->is_set('geocode');
 
 	my $key = $search_string . 'XXXXXXX' . $geocode;
 
@@ -308,7 +368,7 @@ sub create_queue_item
 				count => 100,
 				include_entities => 1,
 	#			max_id => Will be set to the lowest id we find for the purposes of paging
-				since_id => $tweetstream->highest_id - 1, #set to -1 so that we can set the 
+				since_id => $tweetstream->highest_twitterid - 1, #set to -1 so that we can set the 
 			},
 			tweetstreamids => [ $tweetstream->id ], #for when two streams have identical search strings
 			retries => $QUERY_RETRIES, #if there's a failure, we'll try again.
@@ -333,9 +393,9 @@ sub active_tweetstreams
 	$searchexp->add_field(
 			$ds->get_field( "expiry_date" ),
 			$today."-" );
-	$searchexp->add_field(
-			$ds->get_field( "status" ),
-			"active" );
+#	$searchexp->add_field(
+#			$ds->get_field( "status" ),
+#			"active" );
 	
 
 	return $searchexp->perform_search;
