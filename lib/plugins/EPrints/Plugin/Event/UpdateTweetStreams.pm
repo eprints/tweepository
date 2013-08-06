@@ -192,6 +192,7 @@ sub action_update_tweetstreams
 
 	$self->output_status("Updating ended");
 	$self->{log_data}->{end_time} = scalar localtime time;
+	$self->{log_data}->{api_rate_limit} = $limit;
 	$self->write_log;
 	$self->remove_lock;
 }
@@ -309,6 +310,7 @@ sub generate_log_string
 
 	push @r, "Update started at: " . v($l->{start_time});
 	push @r, "Update finished at: " . v($l->{end_time});
+	push @r, "API Queries left: " . v($l->{api_rate_limit});
 	push @r, v($l->{tweets_processed}, 0) . " tweets processed";
 	push @r, v($l->{tweets_created}, 0) . " tweets created";
 	push @r, (scalar keys %{$l->{tweetstreams}}, 0) . " tweetstreams updated:";
@@ -368,7 +370,7 @@ sub create_queue_item
 				count => 100,
 				include_entities => 1,
 	#			max_id => Will be set to the lowest id we find for the purposes of paging
-				since_id => $tweetstream->highest_twitterid - 1, #set to -1 so that we can set the 
+				since_id => $tweetstream->highest_twitterid, 
 			},
 			tweetstreamids => [ $tweetstream->id ], #for when two streams have identical search strings
 			retries => $QUERY_RETRIES, #if there's a failure, we'll try again.
