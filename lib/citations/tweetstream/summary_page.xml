@@ -2,7 +2,7 @@
 
 <cite:citation xmlns="http://www.w3.org/1999/xhtml" xmlns:cite="http://eprints.org/ep3/citation" xmlns:epc="http://eprints.org/ep3/control">
 
-<epc:if test="is_set(top_from_users)">
+<epc:if test="is_set(oldest_tweets)">
 <!--if the field is set then we've generated the abstract at least once -->
 
 <div class='tweetstream_summary'>
@@ -50,7 +50,7 @@
 </table>
 </div>
 </epc:if>
-<epc:if test="!is_set(top_from_users)">
+<epc:if test="!is_set(oldest_tweets)">
 <h2>Nothing To See Here</h2>
 <p>This page is generated periodically (probably nightly).  If there is nothing here, there are a number of reasons why this might be:
 <ul>

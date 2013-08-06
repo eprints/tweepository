@@ -100,6 +100,10 @@ sub update_tweetstream_abstracts
 	}
 	$self->{log_data}->{highest_tweetid} = $self->{highest_tweetid};
 
+	my $tweetstream = $self->get_wanted_tweetstreams();
+
+
+
 	$self->get_tweetstream_counts;
 
 	$self->initialise_wanted_streams;
@@ -335,10 +339,6 @@ sub aggregate_with_queries
 	#operations over whole tweetstreams
 	foreach my $tweetstreamid ($self->tweetstreamids)
 	{
-		#oldest and newest tweets
-		$self->{tweetstream_data}->{$tweetstreamid}->{oldest_tweets} = $self->get_old_or_new($tweetstreamid, 'old');
-		$self->{tweetstream_data}->{$tweetstreamid}->{newest_tweets} = $self->get_old_or_new($tweetstreamid, 'new');
-
 	#top things (from multiple fields)
 		foreach my $fieldid (qw/ hashtags tweetees urls_from_text /)
 		{
@@ -623,60 +623,6 @@ sub get_top_data_multiple
 		$r->{$row->[0]} = $row->[1];
 	}
 	return $r;
-}
-
-
-#$choice should be 'old' or 'new'
-sub get_old_or_new
-{
-	my ($self, $tweetstreamid, $choice) = @_;
-	my $repo = $self->repository;
-
-	my $n_oldest = $repo->config('tweetstream_tweet_renderopts','n_oldest');
-	my $n_newest = $repo->config('tweetstream_tweet_renderopts','n_newest');
-
-	#note hight limit as it's faster to sort by tweetid, but we need twitterid, which is approximately the same.
-	#to be safe, we grab loads more than we need.
-	my $sub_query_args = {
-		'select' => ['tweet.tweetid', 'tweet.twitterid'],
-		from => 'tweet LEFT JOIN tweet_tweetstreams ON tweet.tweetid = tweet_tweetstreams.tweetid',
-		where => "tweet_tweetstreams.tweetstreams = $tweetstreamid",
-		orderby => 'tweet_tweetstreams.tweetid',
-		limit => 5000 + $n_oldest,
-	};
-
-	if ($choice eq 'new')
-	{
-		$sub_query_args->{orderby} = 'tweet_tweetstreams.tweetid DESC';
-		$sub_query_args->{limit} = 5000 + $n_newest;
-	}
-
-
-	my $args = {
-		'select' => ['foo.tweetid'],
-		from => '(' . $self->build_sql($sub_query_args) . ') AS foo',
-		orderby => 'foo.twitterid',
-		'limit' => $n_oldest,
-	};
-
-	if ($choice eq 'new')
-	{
-		$args->{orderby} = 'foo.twitterid DESC';
-		$args->{limit} = $n_newest;
-	}
-
-	my $sth = $self->run_query($args);
-	
-	my $arr = $self->query_to_arrayref($sth);
-
-	#they will be in reverse order at this point, so re-reverse
-	if ($choice eq 'new')
-	{
-		my @tmp = reverse @{$arr};
-		$arr = \@tmp;
-	}
-
-	return $arr;
 }
 
 #the first column of the results will be returned as an arrayref

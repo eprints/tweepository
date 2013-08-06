@@ -143,7 +143,8 @@ $c->add_dataset_field( 'tweet', { name=>"newborn", type=>"boolean"}, );
 #system metadata
 $c->add_dataset_field( 'tweetstream', { name=>"tweetstreamid", type=>"counter", required=>1, import=>0, can_clone=>1, sql_counter=>"tweetstreamid" }, );
 $c->add_dataset_field( 'tweetstream', { name=>"userid", type=>"itemref", datasetid=>"user", required=>1 }, );
-$c->add_dataset_field( 'tweetstream', { name =>"status", type => 'set', options => [ 'active', 'archived' ] }, required=>1 );
+$c->add_dataset_field( 'tweetstream', { name =>"status", type => 'set', options => [ 'active', 'archived' ] } );
+$c->add_dataset_field( 'tweetstream', { name =>"needs_abstract_update", type => 'boolean' } );
 
 #core metadata (set by user)
 $c->add_dataset_field( 'tweetstream', { name=>"search_string", type=>"text", required=>"yes" }, );
@@ -823,71 +824,123 @@ sub add_tweets
 {
 	my ($self, $tweets) = @_;
 
+	return unless scalar @{$tweets}; #paranoia -- make sure there are tweets in the array
+
 	my $repo = $self->repository;
 	my $tweet_ds = $repo->dataset('tweet');
 
-	#note oldest_tweets set by update_tweetstream_abstracts
-	my $newest_tweets = $self->value('newest_tweets');
-	my $oldest_new_tweet = $tweet_ds->dataobj($newest_tweets->[0]);
-	my $lowest_highid = $oldest_new_tweet->value('twitterid');
+	my $refresh_needed = {};
+	my $highest_and_lowest = {};
+	#figure out if updates of the oldest and newest tweets are needed
+	foreach my $fieldname(qw/ newest_tweets oldest_tweets /)
+	{
+		$refresh_needed->{$fieldname} = 0;
+		$highest_and_lowest->{$fieldname} = 0;
+		if ($self->is_set($fieldname))
+		{
+			my $tweetids = $self->value($fieldname);
+			my $tweet = $tweet_ds->dataobj($tweetids->[0]);
+			$highest_and_lowest->{$fieldname} = $tweet->value('twitterid') if $tweet;
+		}
+		$refresh_needed->{$fieldname} = 1 unless $highest_and_lowest->{$fieldname};
+	}
 
-	my $newest_tweets_refresh_needed = 0;
+	#keep a rolling count of the number of tweets -- initialise the count
+	my $tweet_count;
+	if (!$self->is_set('tweet_count'))
+	{
+		$tweet_count = $self->count_with_query;
+	}
+	else
+	{
+		$tweet_count = $self->value('tweet_count');
+	}	
+
+	#now add each tweet
 	foreach my $tweet (@{$tweets})
 	{
 		$self->_add_tweet($tweet);
 
-		if ($tweet->value('twitterid') > $lowest_highid)
+		$tweet_count++;
+
+		$refresh_needed->{newest_tweets} = 1 if ($tweet->value('twitterid') > $highest_and_lowest->{newest_tweets});
+		$refresh_needed->{oldest_tweets} = 1 if ($tweet->value('twitterid') < $highest_and_lowest->{oldest_tweets});
+		
+	}
+
+	#update oldest and newest tweets if needed
+	foreach my $fieldname (qw/ newest_tweets oldest_tweets /)
+	{
+		if ($refresh_needed->{$fieldname})
 		{
-			$newest_tweets_refresh_needed = 1;
+print STDERR "updating $fieldname\n";
+			my $val = $self->_generate_oldest_or_youngest_tweets($fieldname, $tweets);
+			$self->set_value($fieldname, $val);
 		}
 	}
 
-	#update the newest tweets
-	if ($newest_tweets_refresh_needed)
-	{
-		$self->_update_newest_tweets($tweets);
-		$self->commit;
-	}
+	$self->set_value('tweet_count', $tweet_count);
+	$self->set_value('needs_abstract_update', 'TRUE');
+	$self->commit;
 }
 
-sub _update_newest_tweets
+sub _merge_tweets_with_tweet_field
 {
-	my ($self, $new_tweets) = @_;
+	my ($self, $obj_array, $fieldid) = @_;
 
 	my $repo = $self->repository;
 	my $tweet_ds = $repo->dataset('tweet');
 
-	#note oldest_tweets set by update_tweetstream_abstracts
-	my $newest_tweetids = $self->value('newest_tweets');
-	
-	my @new_newest_tweets;
+	my @new_array;
 
-	foreach my $tweet (@{$new_tweets})
+	foreach my $obj (@{$obj_array})
 	{
-		push @new_newest_tweets, $tweet;
+		push @new_array, $obj;
 	}
 
-	foreach my $tweetid (@{$newest_tweetids})
+	if ($self->is_set($fieldid))
 	{
-		my $tweet = $tweet_ds->dataobj($tweetid);
-		push @new_newest_tweets, $tweet if $tweet;
+		my $objids = $self->value($fieldid);
+		foreach my $objid (@{$objids})
+		{
+			my $obj = $tweet_ds->dataobj($objid);
+			push @new_array, $obj if $obj;
+		}
 	}
-
-	my $n_newest = $repo->config('tweetstream_tweet_renderopts','n_newest');
-
-	my @sorted_new_newest_tweets = sort {$a->value('twitterid') <=> $b->value('twitterid')} @new_newest_tweets;
-	@new_newest_tweets = @sorted_new_newest_tweets[(1-$n_newest)..-1]; #get highest IDs (RHS of the array);
-
-	$newest_tweetids = [];
-	foreach my $tweet (@new_newest_tweets)
-	{
-		push @{$newest_tweetids}, $tweet->value('tweetid');
-	}
-
-	$self->set_value('newest_tweets', $newest_tweetids);
-
-
+	return \@new_array;
 }
+
+sub _generate_oldest_or_youngest_tweets
+{
+	my ($self, $fieldname, $new_tweets) = @_;
+	my $repo = $self->repository;
+
+	my $all_tweets = $self->_merge_tweets_with_tweet_field($new_tweets, $fieldname);
+
+	my $n = 100;
+	$n = $repo->config('tweetstream_tweet_renderopts','n_oldest') if ($fieldname eq 'oldest_tweets');
+	$n = $repo->config('tweetstream_tweet_renderopts','n_newest') if ($fieldname eq 'newest_tweets');
+
+	my @sorted_tweets = sort {$a->value('twitterid') <=> $b->value('twitterid')} @{$all_tweets};
+
+	if ($fieldname eq 'newest_tweets')
+	{
+		@sorted_tweets = @sorted_tweets[(1-$n)..-1]; #get highest IDs (RHS of the array);
+	}
+	else
+	{
+		@sorted_tweets = @sorted_tweets[0..($n-1)]; #get lowest IDs (LHS of the array);
+	}
+
+	my $tweetids = [];
+	foreach my $tweet (@sorted_tweets)
+	{
+		push @{$tweetids}, $tweet->value('tweetid');
+	}
+
+	return $tweetids;
+}
+
 
 #not intended to be called, use add_tweets instead
 sub _add_tweet
