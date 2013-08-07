@@ -17,7 +17,7 @@ sub action_update_tweetstream_abstracts
 {
 	my ($self, %opts) = @_;
 
-        $self->{log_data}->{start_time} = scalar localtime time;
+        $self->log(scalar localtime time, 'start_time') = scalar localtime time;
 	my $repo = $self->repository;
 
 	if ($self->is_locked)
@@ -27,20 +27,17 @@ sub action_update_tweetstream_abstracts
 	}
 	$self->create_lock;
 
-	#initialise state variables
-	$self->{tweetstream_data} = {};
 	$self->{cache_file} = $repo->config('archiveroot') . '/var/' . 'tweetstream_update.cache';
 
 	if ($opts{update_from_zero} and -e $self->{cache_file})
 	{
 		#remove the cache
-		unlink $self->{cache_file}; #perhaps we need exception handling here?
+		unlink $self->{cache_file} if -e $self->{cache_file}; 
 		$self->{update_from_zero} = 1;
 	}
 
-
+	#global cache of this update's profile_image_urls
 	$self->{profile_image_urls} = {};
-	$self->{highest_tweetid} = 0; #don't iterate over anything higher than this (could mess up the cache)
 
 	$self->update_tweetstream_abstracts();
 
@@ -86,53 +83,150 @@ sub generate_log_string
 	return join("\n", @r);
 }
 
+
 sub update_tweetstream_abstracts
 {
 	my ($self) = @_;
 
 	my $repo = $self->repository;
-	my $db = $repo->database;
+	my $tweet_ds = $repo->dataset('tweet');
+	my $tweetstream_ds = $repo->dataset('tweetstream');
 
-	$self->get_highest_tweetid(); #the first thing we do!
-	if (!$self->{highest_tweetid})
+	$high_id = get_highest_tweetid(); #the first thing we do!
+	if (!$high_id)
 	{
 		$repo->log("Couldn't find highest tweet id\n");
 	}
-	$self->{log_data}->{highest_tweetid} = $self->{highest_tweetid};
+	$self->{log_data}->{highest_tweetid} = $high_id;
 
-	my $tweetstream = $self->get_wanted_tweetstreams();
+	#set the low ID to the previous update's high ID
+	$low_id = $self->read_cache_data('highest_twitterid_processed');
+	$low_id = 0 unless $low_id;
+	$low_id = 0 if $self->{update_from_zero}; #should be unneccesary as update_from_zero will remove the cache
 
+	$self->log_data(scalar localtime time, 'iterate_start_time');
 
-
-	$self->get_tweetstream_counts;
-
-	$self->initialise_wanted_streams;
-
-	my @tsids = $self->tweetstreamids;
-	$self->{log_data}->{tweetstreams_updated} = \@tsids;
-
-	#don't read the counts from the cache.
-	my $tmp_counts = $self->{tweetstream_data}->{context}->{counts};
-	$self->read_cache;
-	$self->{tweetstream_data}->{context}->{counts} = $tmp_counts;
-
-	$self->update_tweet_counts; #replace cached counts with live counts in each tweetstream
-
-	$self->{log_data}->{iterate_start_time} = scalar localtime time;
-	$self->iterate_over_tweets; #walk all over the database (the hard bit) -- $self->{tweetstream_data}->{context}->{highest_seen_id} makes this only do the new stuff
-	$self->{log_data}->{iterate_end_time} = scalar localtime time;
-
-	$self->write_cache; #cache the hard bit
-
-	$self->{log_data}->{queries_start_time} = scalar localtime time;
-	$self->aggregate_with_queries; #direct queries -- pretty snappy!
-	$self->{log_data}->{queries_end_time} = scalar localtime time;
-
-	$self->prepare_tweetstream_data;
-
-	foreach my $tweetstreamid ($self->tweetstreamids)
+	my $data = {};
+	foreach my $tweetid ($low_id..$high_id)
 	{
-		$self->update_tweetstream($tweetstreamid);
+		my $tweet = $tweet_ds->dataobj($tweetid);
+		next unless $tweet;
+
+		my $tweet_data = $self->tweet_to_data($tweet);
+
+		my $tsids = $tweet->value('tweetstreams');
+
+		foreach my $tsid (@{$tsids})
+		{
+			$data->{$tsid} = {} if (!$data->{$tsid}); #make sure we have an entry in the has for this tweetstream 
+
+			$self->merge_in($data->{$tsid}, $tweet_data);
+		}
+	}
+
+	$self->log_data(scalar localtime time, 'iterate_end_time');
+
+	my @updated_tweetstreams;
+	my $update_tweetstreams = $repo->plugin('Event::UpdateTweetStreams');
+	my $lockfile = $update_tweetstreams->lockfile;
+	foreach my $tsid (sort keys %{$data})
+	{
+		#wait until update_tweetstreams has finished as it will also be writing to tweetstream objects
+		while (-e $lockfile)
+		{
+			sleep 10;
+		}
+
+		my $tweetstream = $tweetstream_ds->dataobj($tsid);
+		next unless $tweetstream;
+
+		push @updated_tweetstreams, $tsid;
+
+		my $ts_data = $data->{$tsid};
+
+		my $cached_ts_data = $self->read_cache_data('tweetstreams', $tsid);
+		if ($cached_ts_data)
+		{
+			$self->merge_in($ts_data, $cached_ts_data);
+		}
+
+		$self->update_tweetstream($tweetstream, $data); 
+	}
+	$self->log(\@updated_tweetstreams, 'tweetstreams_updated');
+
+	#tidy $data -- it has cached data mixed in with it -- remove the least significant data to avoid boundless growth
+
+	#tidy cache -- check all cached tweetstreams and remove the expired ones
+
+	foreach my $tsid (keys %{$data})
+	{
+		$self->write_cache_data($data->{$tsid}, 'tweetstreams', $tsid);
+	}
+	$self->write_cache_data($high_id, 'highest_twitterid_processed');
+
+	$self->write_cache;
+}
+
+
+sub tweet_to_data
+{
+	my ($self, $tweet) = @_;
+
+	my $repo = $self->repository;
+	my $tweet_ds = $repo->dataset('tweet');
+
+	#tweet fieldnames are keys, tweetstream fieldnames are values
+	my $fieldmap = $repo->config('update_tweetstream_abstracts','fieldmap');
+
+	my $data = {};
+
+	#handle multiple and non-multiple simple fields
+	foreach my $field (keys @{$fieldmap})
+	{
+		next unless $tweet->is_set($field);
+		my $val = $tweet->value($field);
+
+		if ($field eq 'created_at')
+		{
+			#convert from a datetime to a date
+			my ($date, $time) = split(/ /, $val);
+			$val = $date;
+		}
+
+		if (ref $val eq 'ARRAY')
+		{
+			foreach my $v (@{$val})
+			{
+				$data->{$field}->{$v}++;
+			}
+		}
+		else
+		{
+			$data->{$field}->{$val}++;
+		}
+	}
+
+	#a bit of a hack, but store the profile_image_urls for each from user at the top level of the object
+	my $from_user = $tweet->value('from_user');
+	if (!$self->{profile_image_urls}->{$from_user})
+	{
+		$self->{profile_image_urls}->{$from_user} = $tweet->value('profile_image_url');
+	}
+
+	return $data;
+}
+
+sub merge_in
+{
+	my ($destination_hashref, $new_data_hashref) = @_;
+
+	foreach my $data_category (keys %{$new_data_hashref})
+	{
+		foreach $data_point (keys %{$new_data_hashref->{$data_category}})
+		{
+			$destination_hashref->{$data_category}->{$data_point} += $new_data_hashref->{$data_category}->{$data_point};
+
+		}
 	}
 }
 
@@ -144,276 +238,146 @@ sub get_highest_tweetid
 		'select' => ['MAX(tweetid)'],
 		'from' => 'tweet',
 	});
-	$self->{highest_tweetid} = $sth->fetchrow_arrayref->[0];
+	return $sth->fetchrow_arrayref->[0];
 }
 
-
-sub update_tweet_counts
+sub write_cache_data
 {
-	my ($self) = @_;
+	my ($self, $data, @path) = @_;
 
-	foreach my $tweetstreamid ($self->tweetstreamids)
+	if (!$self->{cache})
 	{
-		$self->{tweetstream_data}->{$tweetstreamid}->{tweet_count} = 
-			$self->{tweetstream_data}->{context}->{counts}->{$tweetstreamid};
+		$self->load_cache;
 	}
+
+	$self->_insert_into_hashref($data, $self->{cache}, @path);
 }
 
-sub tweetstreamids
+sub read_cache_data
 {
-	my ($self) = @_;
+	my ($self, @path) = @_;
 
-	my @r = ();
-	foreach my $id (keys %{$self->{tweetstream_data}})
+	if (!$self->{cache})
 	{
-		next if $id eq 'context';
-		push @r, $id;
+		$self->load_cache;
 	}
-	return @r;
+
+	my $c = $self->{cache};
+
+	foreach my $k (@path)
+	{
+		if (exists $c->{$k})
+		{
+			$c = $c->{$k};
+		}
+		else
+		{
+			return undef;
+		}
+	}
+
 }
 
-#overwrite anything in the active tweetstream_data hash to the cache (so we don't lose old data).
+
+#write the cache to the disk
 sub write_cache
 {
 	my ($self) = @_;
 	my $repo = $self->repository;
 
-	my $cache_file = $self->{cache_file};
-	my $cache_data;
-	if (-e $cache_file)
-	{
-		$cache_data = retrieve($cache_file);
+	store($self->{cache}, $cache_file) or $repo->log("Error updating tweetstream.  Couldn't write to $cache_file\n");
 
-		if (!defined $cache_data)
+	$self->log(-s $cache_file, 'end_cache_file_size');
+}
+
+sub log
+{
+	my ($self, $data, @log_path) = @_;
+
+	if (!exists $self->{log_data})
+	{
+		$self->{log_data} = {};
+	}
+
+	$self->_insert_into_hashref($data, $self->{log_data}, @log_path);
+}
+
+sub _insert_into_hashref
+{
+	my ($self, $data, $hashref, @path) = @_;
+
+	my $c = $hashref;
+	my $last_key = pop @path;
+
+	foreach my $k (@path)
+	{
+		if (!exists $c->{$k})
 		{
-			$repo->log("Error updating tweetstream.  Couldn't read from $cache_file\n");
+			$c->{$k} = {};
 		}
+		$c = $c->{$k};
 	}
 
-	foreach my $k (keys %{$self->{tweetstream_data}})
-	{
-		$cache_data->{$k} = $self->{tweetstream_data}->{$k};
-	}
-
-	store($cache_data, $cache_file) or $repo->log("Error updating tweetstream.  Couldn't write to $cache_file\n");
-	$self->{log_data}->{end_cache_file_size} = -s $cache_file;
+	$c->{$last_key} = $data;
 }
 
 #read from the cache and pull out data for any defined keys in $self->{tweetstream_data} (including the 'context' key)
-sub read_cache
+sub load_cache
 {
 	my ($self) = @_;
 	my $repo = $self->repository;
-
-	$self->{log_data}->{cache_file_size} = 0;
-
 	my $cache_file = $self->{cache_file};
+
 	if (!-e $cache_file)
 	{
-		#if it doesn't exist, we'll just start from scratch 
-		$self->{log_data}->{start_cache_file_size} = 0;
+		$self->log(0,'start_cache_file_size');
+		$self->{cache} = {};
 		return;
 	}
-	$self->{log_data}->{start_cache_file_size} = -s $cache_file;
 
 	my $cache_data = retrieve($cache_file);
 
 	if (!defined $cache_data)
 	{
 		$repo->log("Error updating tweetstream.  Couldn't read from $cache_file\n");
+		$self->log(0,'start_cache_file_size');
+		$self->{cache} = {};
+		return;
 	}
-
-	foreach my $tweetstreamid ($self->tweetstreamids)
-	{
-		$self->{tweetstream_data}->{$tweetstreamid} = $cache_data->{$tweetstreamid} if $cache_data->{$tweetstreamid};
-	}
-	$self->{tweetstream_data}->{context} = $cache_data->{context} if $cache_data->{context};
+	
+	$self->log(-s $cache_file, 'start_cache_file_size');
+	$self->{cache} = $cache_data;
 }
-
-
-sub get_tweetstream_counts
-{
-	my ($self) = @_;
-
-	my $sth = $self->run_query({'select' => ['tweetstreams', 'COUNT(*)'], from => 'tweet_tweetstreams', groupby => 'tweetstreams'});
-	while (my $row = $sth->fetchrow_arrayref)
-	{
-		$self->{tweetstream_data}->{context}->{counts}->{$row->[0]} = $row->[1];
-	}
-
-	return if $self->{update_from_zero}; #don't set an old count -- we'll pretend we don't know it if we're updating from zero
-
-	$sth = $self->run_query({'select' => ['tweetstreamid', 'tweet_count'], from => 'tweetstream'});
-	while (my $row = $sth->fetchrow_arrayref)
-	{
-		$self->{tweetstream_data}->{context}->{oldcounts}->{$row->[0]} = $row->[1];
-	}
-}
-
-sub initialise_wanted_streams
-{
-	my ($self) = @_;
-
-	#if there's no old count, or if the old count and the cound differ, we'll need to update
-	foreach my $tweetstreamid (keys %{$self->{tweetstream_data}->{context}->{counts}})
-	{
-		if (
-			!$self->{tweetstream_data}->{context}->{oldcounts}->{$tweetstreamid}
-		||
-			(
-				$self->{tweetstream_data}->{context}->{oldcounts}->{$tweetstreamid} != 
-				$self->{tweetstream_data}->{context}->{counts}->{$tweetstreamid}
-			)
-		)
-		{
-			$self->{tweetstream_data}->{$tweetstreamid} = {}; #ready to accept data
-		}
-	}
-}
-
-
-sub iterate_over_tweets
-{
-	my ($self) = @_;
-
-	#page over all data, aggregating as we go
-	my $page_size = 100000;
-	$self->{tweetstream_data}->{context}->{highest_seen_id} = 0 unless $self->{tweetstream_data}->{context}->{highest_seen_id};
-
-	ITERATION: while (1) #we'll break out when we've processed the last page.
-	{
-		my $sth = $self->run_query({
-			'select' => [qw/tweetid twitterid from_user profile_image_url created_at_year created_at_month created_at_day/],
-			from => 'tweet',
-			orderby => 'tweetid',
-			where => "tweetid > " . $self->{tweetstream_data}->{context}->{highest_seen_id},
-			limit =>$page_size,
-		});
-
-		#EXIT POINT -- if we have no more rows to process
-		last ITERATION unless ($sth->rows);
-
-		while (my $row = $sth->fetchrow_hashref)
-		{
-			my $tweetid = $row->{tweetid};
-
-			#ANOTHER EXIT POINT (to ignore counting newly harvested items [subtle caching bug]
-			last ITERATION if $tweetid > $self->{highest_tweetid};
-
-			if (!$self->{log_data}->{lowest_tweetid})
-			{
-				$self->{log_data}->{lowest_tweetid} = $tweetid;
-			}
-			$self->{log_data}->{iterate_tweet_count}++;
-
-			$self->{tweetstream_data}->{context}->{highest_seen_id} = $tweetid;
-			my $tweetstreamids = $self->tweet_tweetstreams($tweetid);
-
-			my $date = join('-',(
-				sprintf("%04d",$row->{created_at_year}),
-				sprintf("%02d",$row->{created_at_month}),
-				sprintf("%02d",$row->{created_at_day})
-			));
-
-			foreach my $tweetstreamid (@{$tweetstreamids})
-			{
-				next unless $self->{tweetstream_data}->{$tweetstreamid}; #we're only interested in it if it's been initialised.
-				$self->{tweetstream_data}->{$tweetstreamid}->{dates}->{$date}++;
-				if ($row->{from_user})
-				{
-					$self->{tweetstream_data}->{$tweetstreamid}->{counts}->{top_from_users}->{$row->{from_user}}++;
-					$self->{tweetstream_data}->{$tweetstreamid}->{profile_image_urls}->{$row->{from_user}}
-						= $row->{profile_image_url} if $row->{profile_image_url};
-				}
-			}
-		}
-	#tidy data function seems not to be working.  We'll reevaluate depending on how big our data is.
-		$self->tidy_data($self->{tweetstream_data});
-	}
-}
-
-sub aggregate_with_queries
-{
-	my ($self) = @_;
-
-	#operations over whole tweetstreams
-	foreach my $tweetstreamid ($self->tweetstreamids)
-	{
-	#top things (from multiple fields)
-		foreach my $fieldid (qw/ hashtags tweetees urls_from_text /)
-		{
-			my $counts = $self->get_top_data_multiple($tweetstreamid, $fieldid);
-			$self->{tweetstream_data}->{$tweetstreamid}->{counts}->{"top_$fieldid"} = $counts;
-		}
-	}
-
-	#multiple column max counts for csv export.  Now global for performance
-	foreach my $fieldname (qw/ hashtags tweetees urls_from_text /)
-	{
-		my $sth = $self->run_query({
-			'select' => ['COUNT(*)'],
-			'from' => "tweet_$fieldname",
-			'groupby' => 'tweetid',
-			'orderby' => 'COUNT(*) DESC',
-			'limit' => 1,
-		});
-		my $v = $sth->fetchrow_arrayref->[0];
-		foreach my $tweetstreamid ($self->tweetstreamids)
-		{
-			$self->{tweetstream_data}->{$tweetstreamid}->{$fieldname.'_ncols'} = $v;
-		}
-	}
-}
-
-sub prepare_tweetstream_data
-{
-	my ($self) = @_;
-
-	#fill global $self->{profile_image_urls} var
-	#not very pretty, but moving them to outside of a tweetstream context
-	#makes preparing the data easier.
-	foreach my $tweetstreamid ($self->tweetstreamids)
-	{
-		my $urls = delete ($self->{tweetstream_data}->{$tweetstreamid}->{profile_image_urls});
-		foreach my $username (keys %{$urls})
-		{
-			$self->{profile_image_urls}->{$username} = $urls->{$username};
-		}
-	}
-}
-
-
 
 sub update_tweetstream
 {
-	my ($self, $tweetstreamid) = @_;
+	my ($self, $tweetstream, $data) = @_;
+
 	my $repo = $self->repository;
 
-	my $data = $self->{tweetstream_data}->{$tweetstreamid};
+	#tweet fieldnames are keys, tweetstream fieldnames are values
+	my $fieldmap = $repo->config('update_tweetstream_abstracts','fieldmap');
 
-	my $ts = $repo->dataset('tweetstream')->dataobj($tweetstreamid);
-	return unless $ts;
-
-	foreach my $fieldname (qw/ newest_tweets oldest_tweets tweet_count hashtags_ncols tweetees_ncols urls_from_text_ncols /)
+	foreach my $fieldname (keys %{$fieldmap})
 	{
-		$ts->set_value($fieldname, $data->{$fieldname});
+		if ($fieldname eq 'created_at')
+		{
+			my ($period, $pairs) = $self->date_data_to_field_data($data->{dates});
+			$tweetstream->set_value('frequency_period',$period);
+			$tweetstream->set_value('frequency_values',$pairs);
+		}
+		else
+		{
+			my $fieldname = $fieldmap->{$fieldname}->{fieldname};
+			my $subname = $fieldmap->{$fieldname}->{subname};
+
+			my $n = $repo->config('tweetstream_tops',$fieldname, 'n');
+			my $val = $self->counts_to_field_data($subname, $data->{counts}->{$fieldname},$n);
+			$tweetstream->set_value($fieldname, $val);
+		}
 	}
-
-	my ($period, $pairs) = $self->date_data_to_field_data($data->{dates});
-	$ts->set_value('frequency_period',$period);
-	$ts->set_value('frequency_values',$pairs);
-
-	foreach my $fieldnamepart (qw/ hashtag from_user tweetee url_from_text /)
-	{
-		my $fieldname = "top_$fieldnamepart" . 's';
-		#exception with bad choice of English.
-		$fieldname = 'top_urls_from_text' if $fieldname eq 'top_url_from_texts';
-
-		my $n = $repo->config('tweetstream_tops',$fieldname, 'n');
-		my $val = $self->counts_to_field_data($fieldnamepart, $data->{counts}->{$fieldname},$n);
-		$ts->set_value($fieldname, $val);
-	}
-	$ts->commit;
+#concurrent programming issue -- need to coordinate with update_tweetstreams!
+	$tweetstream->commit;
 }
 
 sub date_data_to_field_data
@@ -598,59 +562,6 @@ sub tidy_data
 	}	
 }
 
-sub get_top_data_multiple
-{
-	my ($self, $tweetstreamid, $fieldname) = @_;
-	my $repo = $self->repository;
-
-	my $n = $repo->config('tweetstream_tops',"top_$fieldname",'n');
-	$n = 50 unless $n;
-
-	my $args = {
-		'select' => [ "tweet_$fieldname.$fieldname", "count(*)" ],
-		from => "tweet_$fieldname LEFT JOIN tweet_tweetstreams ON tweet_$fieldname.tweetid = tweet_tweetstreams.tweetid",
-		where => "tweet_tweetstreams.tweetstreams = $tweetstreamid",
-		groupby => "tweet_$fieldname.$fieldname",
-		orderby => 'count(*) desc',
-		limit => $n,
-	};
-
-	my $sth = $self->run_query($args);
-	my $r = {};
-
-	while (my $row = $sth->fetchrow_arrayref)
-	{
-		$r->{$row->[0]} = $row->[1];
-	}
-	return $r;
-}
-
-#the first column of the results will be returned as an arrayref
-sub query_to_arrayref
-{
-	my ($self, $sth) = @_;
-	my $r = [];
-
-	while (my $row = $sth->fetchrow_arrayref)
-	{
-		push @{$r}, $row->[0];
-	}
-	return $r;
-}
-
-
-sub tweet_tweetstreams
-{
-	my ($self, $tweetid) = @_;
-
-	my $sth = $self->run_query({'select' => ['tweetstreams'], from => 'tweet_tweetstreams', where => "tweetid = $tweetid"});
-	my $r = [];
-	while (my $row = $sth->fetchrow_arrayref)
-	{
-		push @{$r}, $row->[0];
-	}
-	return $r;
-}
 
 sub run_query
 {

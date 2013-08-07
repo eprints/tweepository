@@ -34,6 +34,17 @@ if ($c->{tweepository_simplify_menus})
 	$c->{plugins}->{"Screen::FirstTool"}->{params}->{default} = "ManageTweetstreamsLink";
 }
 
+#aggregation of metadata
+#maps name of field in tweet to name of aggregate field in tweetstream;
+$c->{'update_tweetstream_abstracts'}->{fieldmap} = {
+        'from_user' => { fieldname => 'top_from_users', subname => 'from_user' },
+        'created_at' => 'frequency_periods and frequency_values', #process as an exeption
+        'hashtags' => { fieldname => 'top_hashtags', subname => 'hashtag'},
+        'tweetees' => { fieldname => 'top_tweettees', subname => 'tweetee'},
+        'urls_from_text' => { fieldname => 'top_urls_from_text', subname => 'url_from_text'},
+};
+
+
 
 #tweetstream latest_tool
 $c->{tweetstream_latest_tool_modes} = {
@@ -144,7 +155,6 @@ $c->add_dataset_field( 'tweet', { name=>"newborn", type=>"boolean"}, );
 $c->add_dataset_field( 'tweetstream', { name=>"tweetstreamid", type=>"counter", required=>1, import=>0, can_clone=>1, sql_counter=>"tweetstreamid" }, );
 $c->add_dataset_field( 'tweetstream', { name=>"userid", type=>"itemref", datasetid=>"user", required=>1 }, );
 $c->add_dataset_field( 'tweetstream', { name =>"status", type => 'set', options => [ 'active', 'archived' ] } );
-$c->add_dataset_field( 'tweetstream', { name =>"needs_abstract_update", type => 'boolean' } );
 
 #core metadata (set by user)
 $c->add_dataset_field( 'tweetstream', { name=>"search_string", type=>"text", required=>"yes" }, );
@@ -819,7 +829,7 @@ use strict;
 
 
 #add an arrayref of tweet objects to this tweetstream
-#you must commit the object after you call add_tweets
+#note that this function commits the object
 sub add_tweets
 {
 	my ($self, $tweets) = @_;
@@ -829,9 +839,9 @@ sub add_tweets
 	my $repo = $self->repository;
 	my $tweet_ds = $repo->dataset('tweet');
 
+	#we may need to update the highest and lowest.  Initialise varables to assist with this.
 	my $refresh_needed = {};
 	my $highest_and_lowest = {};
-	#figure out if updates of the oldest and newest tweets are needed
 	foreach my $fieldname(qw/ newest_tweets oldest_tweets /)
 	{
 		$refresh_needed->{$fieldname} = 0;
@@ -859,13 +869,38 @@ sub add_tweets
 	#now add each tweet
 	foreach my $tweet (@{$tweets})
 	{
-		$self->_add_tweet($tweet);
+		if ($self->_add_tweet($tweet))
+		{
+			$tweet_count++;
 
-		$tweet_count++;
+			#do we need to update oldest or newest?
+			$refresh_needed->{newest_tweets} = 1 if ($tweet->value('twitterid') > $highest_and_lowest->{newest_tweets});
+			$refresh_needed->{oldest_tweets} = 1 if ($tweet->value('twitterid') < $highest_and_lowest->{oldest_tweets});
 
-		$refresh_needed->{newest_tweets} = 1 if ($tweet->value('twitterid') > $highest_and_lowest->{newest_tweets});
-		$refresh_needed->{oldest_tweets} = 1 if ($tweet->value('twitterid') < $highest_and_lowest->{oldest_tweets});
-		
+			#update ncols fields if necessary
+			foreach my $tweet_fieldname (qw/ hashtags tweetees urls_from_text /)
+			{
+				if ($tweet->is_set($fieldname)
+				{
+					$val = $tweet->value($fieldname);
+					$n = scalar @{$val};
+
+					my $tweetstream_fieldname = $tweet_fieldname . '_ncols';
+					if ($self->is_set($tweetstream_fieldname))
+					{
+						$ts_n = $self->value($tweetstream_fieldname);
+						if ($n > $ts_n)
+						{
+							$self->set_value($tweetstream_fieldname, $n);
+						}
+					}
+					else
+					{
+						$self->set_value($tweetstream_fieldname, $n);
+					}
+				}
+			}
+		}
 	}
 
 	#update oldest and newest tweets if needed
@@ -879,7 +914,6 @@ sub add_tweets
 	}
 
 	$self->set_value('tweet_count', $tweet_count);
-	$self->set_value('needs_abstract_update', 'TRUE');
 	$self->commit;
 }
 
@@ -950,11 +984,12 @@ sub _add_tweet
 	my $tsids = $tweet->value('tweetstreams');
 	foreach my $tsid (@{$tsids})
 	{
-		return if $tsid = $self->value('tweetstreamid');
+		return 0 if $tsid = $self->value('tweetstreamid');
 	}
 	push @{$tsids}, $self->value('tweetstreamid');
 	$tweet->set_value('tweetstreamids', $tsids);
 	$tweet->commit;
+	return 1;
 }
 
 
