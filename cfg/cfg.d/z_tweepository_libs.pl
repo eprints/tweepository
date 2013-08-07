@@ -873,7 +873,6 @@ sub add_tweets
 	{
 		if ($refresh_needed->{$fieldname})
 		{
-print STDERR "updating $fieldname\n";
 			my $val = $self->_generate_oldest_or_youngest_tweets($fieldname, $tweets);
 			$self->set_value($fieldname, $val);
 		}
