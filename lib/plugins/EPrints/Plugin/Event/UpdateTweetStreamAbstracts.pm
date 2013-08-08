@@ -108,9 +108,10 @@ sub update_tweetstream_abstracts
 
 	#set the low ID to the previous update's high ID
 	my $low_id = $self->read_cache_data('highest_tweet_processed');
-
 	$low_id = 0 unless $low_id;
 	$low_id = 0 if $self->{update_from_zero}; #should be unneccesary as update_from_zero will remove the cache
+
+	$low_id += 1; #start at the *next* ID
 
 	$self->log(scalar localtime time, 'iterate_start_time');
 
@@ -210,13 +211,13 @@ sub update_tweetstream_abstracts
 
 	$self->output_status('Updating Complete, tidying up');
 
-	$self->tidy_cache;
-
 	foreach my $tsid (keys %{$data})
 	{
 		$self->write_cache_data($data->{$tsid}, 'tweetstreams', $tsid);
 	}
 	$self->write_cache_data($highest_tweetid_seen, 'highest_tweet_processed');
+
+	$self->tidy_cache;
 
 	$self->write_cache;
 	$self->output_status('Finished');
@@ -457,7 +458,7 @@ sub update_tweetstream
 	{
 		if ($fieldname eq 'created_at')
 		{
-			my ($period, $pairs) = $self->date_data_to_field_data($data->{dates});
+			my ($period, $pairs) = $self->date_data_to_field_data($data->{$fieldname});
 			$tweetstream->set_value('frequency_period',$period);
 			$tweetstream->set_value('frequency_values',$pairs);
 		}
@@ -468,8 +469,7 @@ sub update_tweetstream
 
 			my $n = $repo->config('tweetstream_tops',$ts_fieldname, 'n');
 			my $val = $self->counts_to_field_data($subname, $data->{$fieldname}, $n);
-use Data::Dumper;
-print STDERR "Setting $ts_fieldname to: ", Dumper $val;
+
 			$tweetstream->set_value($ts_fieldname, $val);
 		}
 	}

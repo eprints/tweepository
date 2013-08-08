@@ -32,6 +32,7 @@ my $plugin = $repo->plugin('Event::UpdateTweetStreamAbstracts');
 my %opts;
 
 $opts{update_from_zero} = 1 if $update_from_zero;
+$opts{verbose} = 1;
 
 $plugin->action_update_tweetstream_abstracts(%opts);
 
