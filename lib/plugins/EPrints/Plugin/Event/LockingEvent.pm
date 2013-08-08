@@ -18,6 +18,19 @@ sub new
         return $self;
 }
 
+sub output_status
+{
+        my ($self, @message) = @_;
+
+        return unless $self->{verbose};
+
+        my $message = join('', @message);
+        $message =~ s/\n/\n\t/g; #indent multiple lines
+
+        print STDERR scalar localtime time,' -- ', $message, "\n";
+}
+
+
 #should be overridden, but in case it isn't
 sub generate_log_string
 {
@@ -66,7 +79,8 @@ sub lockfile
 	return $self->_file_without_extension . '.lock';
 }
 
-
+#returns true if this process is locked
+#Note -- side-effect, will remove the lock file of a previously crashed process
 sub is_locked
 {
 	my ($self) = @_;

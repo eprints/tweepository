@@ -35,13 +35,14 @@ if ($c->{tweepository_simplify_menus})
 }
 
 #aggregation of metadata
-#maps name of field in tweet to name of aggregate field in tweetstream;
+#maps name of field in tweet to name of aggregate field in tweetstream
+#also controls whether the field will get tidied in the cache (throw away less frequent values to save space)
 $c->{'update_tweetstream_abstracts'}->{fieldmap} = {
-        'from_user' => { fieldname => 'top_from_users', subname => 'from_user' },
-        'created_at' => 'frequency_periods and frequency_values', #process as an exeption
-        'hashtags' => { fieldname => 'top_hashtags', subname => 'hashtag'},
-        'tweetees' => { fieldname => 'top_tweettees', subname => 'tweetee'},
-        'urls_from_text' => { fieldname => 'top_urls_from_text', subname => 'url_from_text'},
+        'from_user' => { fieldname => 'top_from_users', subname => 'from_user', tidy => 1 },
+        'created_at' => { fieldname => '##process_as_exception', tidy => 0 },
+        'hashtags' => { fieldname => 'top_hashtags', subname => 'hashtag', tidy => 1},
+        'tweetees' => { fieldname => 'top_tweettees', subname => 'tweetee', tidy => 1},
+        'urls_from_text' => { fieldname => 'top_urls_from_text', subname => 'url_from_text', tidy => 1},
 };
 
 
@@ -880,15 +881,15 @@ sub add_tweets
 			#update ncols fields if necessary
 			foreach my $tweet_fieldname (qw/ hashtags tweetees urls_from_text /)
 			{
-				if ($tweet->is_set($fieldname)
+				if ($tweet->is_set($tweet_fieldname))
 				{
-					$val = $tweet->value($fieldname);
-					$n = scalar @{$val};
+					my $val = $tweet->value($tweet_fieldname);
+					my $n = scalar @{$val};
 
 					my $tweetstream_fieldname = $tweet_fieldname . '_ncols';
 					if ($self->is_set($tweetstream_fieldname))
 					{
-						$ts_n = $self->value($tweetstream_fieldname);
+						my $ts_n = $self->value($tweetstream_fieldname);
 						if ($n > $ts_n)
 						{
 							$self->set_value($tweetstream_fieldname, $n);

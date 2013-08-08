@@ -15,19 +15,6 @@ my $HTTP_RETRIES = 5; #for network errors
 my $QUERY_RETRIES = 5; #for API errors
 my $QUERIES_BEFORE_RATE_CHECK = 100; #because one query may use more than one of the quota if it's complex
 
-sub output_status
-{
-	my ($self, @message) = @_;
-
-	return unless $self->{verbose};
-
-	my $message = join('', @message);
-	$message =~ s/\n/\n\t/g; #indent multiple lines
-
-	print scalar localtime time,' -- ', $message, "\n";
-}
-
-
 sub action_update_tweetstreams
 {
 	my ($self, $verbose) = @_;
