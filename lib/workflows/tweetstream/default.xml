@@ -7,20 +7,31 @@
   </flow>
    
   <stage name="default">
-<epc:if test="tweet_count">
+
+<epc:if test="status != 'archived'">
+  <epc:if test="!tweet_count">
     <component type="Field::Multi">
 	<title>Parameters</title>
 	<field ref="search_string" required="yes" />
 	<field ref="expiry_date" required="yes" />
 	<field ref="geocode" />
     </component>
+  </epc:if>
+
+  <epc:if test="tweet_count">
+    <component type="Field::Multi">
+	<title>Parameters</title>
+	<field ref="expiry_date" required="yes" />
+    </component>
+  </epc:if>
 </epc:if>
 
     <component type="Field::Multi">
-	<title></title>
+	<title>Metadata</title>
 	<field ref="title" />
 	<field ref="project_title" />
 	<field ref="abstract" />
+	<field ref="status" />
     </component>
 
   </stage>
