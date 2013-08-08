@@ -124,7 +124,7 @@ sub action_update_tweetstreams
 				if ($results_count < 1)#if an empty page of results, assume no more tweets
 				{
 					$self->output_status('Empty Results Set');
-					$self->{log_data}->{tweetstreams}->{$current_item->{id}}->{end_state} = 'Update Completed (Hooray)';
+					$self->{log_data}->{tweetstreams}->{$current_item->{id}}->{end_state} = 'Update Completed \o/';
 				}
 				else
 				{
