@@ -41,8 +41,10 @@ $c->{'update_tweetstream_abstracts'}->{fieldmap} = {
         'from_user' => { fieldname => 'top_from_users', subname => 'from_user', tidy => 1 },
         'created_at' => { fieldname => '##process_as_exception', tidy => 0 },
         'hashtags' => { fieldname => 'top_hashtags', subname => 'hashtag', tidy => 1},
-        'tweetees' => { fieldname => 'top_tweettees', subname => 'tweetee', tidy => 1},
+        'tweetees' => { fieldname => 'top_tweetees', subname => 'tweetee', tidy => 1},
         'urls_from_text' => { fieldname => 'top_urls_from_text', subname => 'url_from_text', tidy => 1},
+	'in_reply_to_status_id' => { fieldname => 'top_reply_tos', subname => 'reply_to', tidy => 1 },
+	'retweeted_status_id' => { fieldname => 'top_retweeted', subname => 'retweeted', tidy => 1 },
 };
 
 
@@ -112,6 +114,8 @@ $c->add_dataset_field( 'tweet', { name=>"json_source", type=>"storable", require
 $c->add_dataset_field( 'tweet', { name=>"text", type=>"text" }, );
 $c->add_dataset_field( 'tweet', { name=>"from_user", type=>"text", render_value => 'EPrints::DataObj::Tweet::render_from_user' }, );
 $c->add_dataset_field( 'tweet', { name=>"from_user_id", type=>"bigint" }, );
+$c->add_dataset_field( 'tweet', { name=>"in_reply_to_status_id", type=>"bigint" }, );
+$c->add_dataset_field( 'tweet', { name=>"retweeted_status_id", type=>"bigint" }, );
 $c->add_dataset_field( 'tweet', { name=>"profile_image_url", type=>"url", render_value => 'EPrints::DataObj::Tweet::render_profile_image_url' }, );
 $c->add_dataset_field( 'tweet', { name=>"iso_language_code", type=>"text" }, );
 $c->add_dataset_field( 'tweet', { name=>"source", type=>"text" }, );
@@ -145,7 +149,8 @@ $c->add_dataset_field( 'tweet', {
 	]
 }, );
 #a list of tweetstreams to which this tweet belongs
-$c->add_dataset_field( 'tweet', { name=>"tweetstreams", type=>"itemref", datasetid=> 'tweetstream', required => 1, multiple => 1 }, );
+#volatile to speed up operations which add and remove tweets from tweetstreams
+$c->add_dataset_field( 'tweet', { name=>"tweetstreams", type=>"itemref", datasetid=> 'tweetstream', required => 1, multiple => 1, volatile => 1 }, );
 
 #a flag to prevent enrichment being done more than once on commit
 $c->add_dataset_field( 'tweet', { name=>"newborn", type=>"boolean"}, );
@@ -220,6 +225,34 @@ $c->add_dataset_field('tweetstream',  { name => "top_urls_from_text", type=>"com
 	{
 		'sub_name' => 'url_from_text',
 		'type' => 'url',
+	},
+	{
+		'sub_name' => 'count',
+		'type' => 'int',
+	}
+	],
+	render_value => 'EPrints::DataObj::TweetStream::render_top_field',
+},);
+
+$c->add_dataset_field('tweetstream',  { name => "top_reply_tos", type=>"compound", multiple=>1,
+	'fields' => [
+	{
+		'sub_name' => 'reply_to',
+		'type' => 'bigint',
+	},
+	{
+		'sub_name' => 'count',
+		'type' => 'int',
+	}
+	],
+	render_value => 'EPrints::DataObj::TweetStream::render_top_field',
+},);
+
+$c->add_dataset_field('tweetstream',  { name => "top_retweeted", type=>"compound", multiple=>1,
+	'fields' => [
+	{
+		'sub_name' => 'retweeted',
+		'type' => 'bigint',
 	},
 	{
 		'sub_name' => 'count',
@@ -559,13 +592,19 @@ sub process_json
 	my $tweet_data = $self->get_value('json_source');
 
 	#pull the data out and stick it in metafields
-	foreach my $fieldname (qw/ text from_user from_user_id profile_image_url iso_language_code source /)
+	foreach my $fieldname (qw/ text from_user from_user_id profile_image_url iso_language_code source in_reply_to_status_id /)
 	{
 		if ($tweet_data->{$fieldname})
 		{
 			$self->set_value($fieldname, $tweet_data->{$fieldname});
 		}
 
+	}
+
+	if (exists $tweet_data->{retweeted_status})
+	{
+		my $retweeted_status_id = $tweet_data->{retweeted_status}->{id};
+		$self->set_value('retweeted_status_id', $retweeted_status_id) if $retweeted_status_id;
 	}
 
 	#API v1.1 hacks
@@ -991,8 +1030,9 @@ sub _add_tweet
 	{
 		return 0 if $tsid == $self->value('tweetstreamid');
 	}
+
 	push @{$tsids}, $self->value('tweetstreamid');
-	$tweet->set_value('tweetstreamids', $tsids);
+	$tweet->set_value('tweetstreams', $tsids);
 	$tweet->commit;
 	return 1;
 }
@@ -1187,6 +1227,27 @@ sub render_top_lhs
 		$a->appendChild($session->make_text($user));
 		return $a;
 	}
+
+	if (
+		$fieldname eq 'top_reply_tos'
+		|| $fieldname eq 'top_retweeted'
+	)
+	{
+		my $twitterid = $stuff->{reply_to};
+		$twitterid = $stuff->{retweeted} if $fieldname eq 'top_retweeted';
+
+		my $tweet = EPrints::DataObj::Tweet::tweet_with_twitterid($session, $twitterid);
+		if ($tweet)
+		{
+			return $tweet->render_span;
+		}
+		else
+		{
+			return $session->make_text('Uncollected tweet with id ' . $twitterid);
+		}
+
+	}
+
 	#we should never get here
 	return $session->make_text("$fieldname unhandled in render_top_lhs\n");
 }

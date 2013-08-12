@@ -254,6 +254,11 @@ sub tweet_to_data
 			$val = $date;
 		}
 
+		if ($field eq 'retweeted_status')
+		{
+
+		}
+
 		if (ref $val eq 'ARRAY')
 		{
 			foreach my $v (@{$val})
@@ -461,6 +466,7 @@ sub update_tweetstream
 			my $subname = $fieldmap->{$fieldname}->{subname};
 
 			my $n = $repo->config('tweetstream_tops',$ts_fieldname, 'n');
+
 			my $val = $self->counts_to_field_data($subname, $data->{$fieldname}, $n);
 
 			$tweetstream->set_value($ts_fieldname, $val);

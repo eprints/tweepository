@@ -30,6 +30,16 @@
       <epc:print expr="top_hashtags"/>
     </div>
 
+    <h2>Top Retweeted</h2>
+    <div style="margin-left: 3em">
+      <epc:print expr="top_retweeted"/>
+    </div>
+
+    <h2>Top Replied To</h2>
+    <div style="margin-left: 3em">
+      <epc:print expr="top_reply_tos"/>
+    </div>
+
     <h2>Top Mentions</h2>
     <div style="margin-left: 3em">
       <epc:print expr="top_tweetees"/>

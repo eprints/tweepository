@@ -104,7 +104,7 @@ sub action_update_tweetstreams
 						}
 					}
 
-					output_status('Uncategorised error, retrying...');
+					$self->output_status('Uncategorised error, retrying...');
 					sleep 10;
 					next RETRY;
 				}

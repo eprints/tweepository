@@ -44,6 +44,16 @@ $c->{tweetstream_tops} =
     cols => 4,
     max_len => 15,
     case_insensitive => 1,
+  },
+  top_reply_tos => {
+    n => 10,
+    cols => 1,
+    case_insensitive => 1,
+  },
+  top_retweeted => {
+    n => 10,
+    cols => 1,
+    case_insensitive => 1,
   }
 };
 
