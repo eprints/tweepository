@@ -226,7 +226,8 @@ sub process_results
 				{
 					twitterid => $tweet->{id},
 					json_source => $tweet,
-					tweetstreams => $current_item->{tweetstreamids},
+#this is now handled by a call to $tweetstream->add_tweets
+#					tweetstreams => $current_item->{tweetstreamids},
 				} 
 			);
 			$tweetobj->commit; #will enrich the tweet

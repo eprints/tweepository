@@ -850,7 +850,11 @@ sub add_tweets
 		if ($self->is_set($fieldname))
 		{
 			my $tweetids = $self->value($fieldname);
-			my $tweet = $tweet_ds->dataobj($tweetids->[0]);
+
+			my $index = 0;
+			$index = -1 if $fieldname eq 'newest_tweets';
+
+			my $tweet = $tweet_ds->dataobj($tweetids->[$index]);
 			$highest_and_lowest->{$fieldname} = $tweet->value('twitterid') if $tweet;
 		}
 		$refresh_needed->{$fieldname} = 1 unless $highest_and_lowest->{$fieldname};
@@ -985,7 +989,7 @@ sub _add_tweet
 	my $tsids = $tweet->value('tweetstreams');
 	foreach my $tsid (@{$tsids})
 	{
-		return 0 if $tsid = $self->value('tweetstreamid');
+		return 0 if $tsid == $self->value('tweetstreamid');
 	}
 	push @{$tsids}, $self->value('tweetstreamid');
 	$tweet->set_value('tweetstreamids', $tsids);
