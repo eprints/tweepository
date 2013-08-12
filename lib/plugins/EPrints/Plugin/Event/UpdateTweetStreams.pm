@@ -202,6 +202,7 @@ sub process_results
 		#only need to set these once
 		if (!$self->{log_data}->{tweetstreams}->{$current_item->{id}}->{latest_seen})
 		{
+			#search results go backwards, so the first result returned will be the latest one
 			$self->{log_data}->{tweetstreams}->{$current_item->{id}}->{latest_seen} = $tweet->{created_at};
 			$self->{log_data}->{tweetstreams}->{$current_item->{id}}->{search_string} = $current_item->{search_params}->{q};
 		}
