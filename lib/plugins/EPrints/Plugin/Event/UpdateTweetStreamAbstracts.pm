@@ -17,7 +17,7 @@ sub action_update_tweetstream_abstracts
 {
 	my ($self, %opts) = @_;
 
-        $self->log(scalar localtime time, 'start_time');
+        $self->{log_data}->{start_time} = scalar localtime time;
 	my $repo = $self->repository;
 
 	if ($self->is_locked)
@@ -47,7 +47,7 @@ sub action_update_tweetstream_abstracts
 	$self->update_tweetstream_abstracts();
 
 	$self->remove_lock;
-        $self->log(scalar localtime time, 'end_time');
+        $self->{log_data}->{end_time} = scalar localtime time;
 	$self->write_log;
 
 }
@@ -65,19 +65,22 @@ sub generate_log_string
         push @r, "Aggregation started at:        " . $l->{start_time};
 	push @r, "Tweetstream abstracts updated  " . join(',',sort {$a <=> $b} @{$l->{tweetstreams_updated}});
 	push @r, '';
-	push @r, "Iterated over                  " . ($l->{iterate_tweet_count} ? $l->{iterate_tweet_count} : 0) . " tweet rows";
-	push @r, "Iteration Low ID               " . ($l->{lowest_tweetid} ? $l->{lowest_tweetid} : 0);
-	push @r, "Iteration High ID              " . $l->{highest_tweetid};
+	push @r, "Iterated over                  " . $l->{iterate_tweet_count} . " tweets";
+	push @r, "Iteration Low ID               " . $l->{lowest_tweetid};
+	push @r, "Iteration High ID              " . ( $l->{highest_tweetid} ? $l->{highest_tweetid} : 'none');
 	push @r, "Started iteration at           " . $l->{iterate_start_time};
 	push @r, "Finished iteration at          " . $l->{iterate_end_time};
 	push @r, '';
-	push @r, "Mysql queries started at:      " . $l->{queries_start_time};
-	push @r, "Mysql queries finished at:     " . $l->{queries_end_time};
+	push @r, "Updating Objects started at    " . $l->{update_objects_start_time};
+	push @r, "Updating Objects finished at   " . $l->{update_objects_end_time};
+	push @r, "Number of sleeps while blocked " . $l->{update_tweetstreams_sleeps};
 	push @r, '';
-	my $size = $self->{log_data}->{start_cache_file_size};
+	push @r, '';
+	push @r, '';
+	my $size = $l->{start_cache_file_size};
 	$size = 0 unless $size;
 	push @r, "Cache size at start             $size (" . format_bytes($size) . ")";
-	$size = $self->{log_data}->{end_cache_file_size};
+	$size = $l->{end_cache_file_size};
 	push @r, "Cache size at end               $size (" . format_bytes($size) . ")";
 	push @r, '';
 	push @r, "Aggregation finished at:       " . $l->{end_time};
@@ -103,8 +106,8 @@ sub update_tweetstream_abstracts
 	if (!$high_id)
 	{
 		$repo->log("Couldn't find highest tweet id\n");
+		$high_id = 1;
 	}
-	$self->log($high_id, 'highest_tweetid');
 
 	#set the low ID to the previous update's high ID
 	my $low_id = $self->read_cache_data('highest_tweet_processed');
@@ -112,25 +115,25 @@ sub update_tweetstream_abstracts
 	$low_id = 0 if $self->{update_from_zero}; #should be unneccesary as update_from_zero will remove the cache
 
 	$low_id += 1; #start at the *next* ID
+	$self->{log_data}->{lowest_tweetid} = $low_id;
 
-	$self->log(scalar localtime time, 'iterate_start_time');
+	$self->{log_data}->{iterate_start_time} = scalar localtime time;
 
 	$self->output_status("Iterating from $low_id to $high_id");
 
 	my $page_size = 100000; #number of tweets we process before tidying the data
 	my $i = 0;
 	my $data = {};
-	my $highest_tweetid_seen = 0;
 	my $tweet_count = 0;
 	foreach my $tweetid ($low_id..$high_id)
 	{
 		my $tweet = $tweet_ds->dataobj($tweetid);
 		next unless $tweet;
 
-		$highest_tweetid_seen = $tweetid;
-		$tweet_count++;
-
 		next unless $tweet->is_set('tweetstreams');
+
+		$tweet_count++; #number of processed tweets, for logging
+		$self->{log_data}->{highest_tweetid} = $tweetid; #highest ID processed, for logging
 
 		my $tweet_data = $self->tweet_to_data($tweet);
 
@@ -159,8 +162,8 @@ sub update_tweetstream_abstracts
 	$self->tidy_tweetstream_data($data);
 	$self->output_status('Iteration Complete, starting updating of dataobjs');
 
-	$self->log(scalar localtime time, 'iterate_end_time');
-	$self->log($tweet_count, 'number_of_tweets_processed');
+	$self->{log_data}->{iterate_end_time} = scalar localtime time;
+	$self->{log_data}->{iterate_tweet_count} = $tweet_count;
 
 	#cache the profile_image_urls stored in each tweetstream, as we will be merging new values with old ones.
 	foreach my $tsid (sort keys %{$data})
@@ -179,7 +182,8 @@ sub update_tweetstream_abstracts
 		}
 	}
 
-	$self->log(scalar localtime time, 'update_objects_time_start');
+	$self->{log_data}->{update_objects_start_time} = scalar localtime time;
+	$self->{log_data}->{update_tweetstreams_sleeps} = 0;
 	my @updated_tweetstreams;
 	my $update_tweetstreams = $repo->plugin('Event::UpdateTweetStreams');
 	foreach my $tsid (sort keys %{$data})
@@ -196,6 +200,7 @@ sub update_tweetstream_abstracts
 		#wait until update_tweetstreams has finished as it will also be writing to tweetstream objects
 		while ($update_tweetstreams->is_locked)
 		{
+			$self->{log_data}->{update_tweetstreams_sleeps}++;
 			sleep 10;
 		}
 
@@ -206,8 +211,8 @@ sub update_tweetstream_abstracts
 
 		$self->update_tweetstream($tweetstream, $ts_data); 
 	}
-	$self->log(\@updated_tweetstreams, 'tweetstreams_updated');
-	$self->log(scalar localtime time, 'update_objects_time_end');
+	$self->{log_data}->{tweetstreams_updated} = \@updated_tweetstreams;
+	$self->{log_data}->{update_objects_end_time} = scalar localtime time;
 
 	$self->output_status('Updating Complete, tidying up');
 
@@ -215,7 +220,7 @@ sub update_tweetstream_abstracts
 	{
 		$self->write_cache_data($data->{$tsid}, 'tweetstreams', $tsid);
 	}
-	$self->write_cache_data($highest_tweetid_seen, 'highest_tweet_processed');
+	$self->write_cache_data($high_id, 'highest_tweet_processed');
 
 	$self->tidy_cache;
 
@@ -383,19 +388,7 @@ sub write_cache
 
 	store($self->{cache}, $cache_file) or $repo->log("Error updating tweetstream.  Couldn't write to $cache_file\n");
 
-	$self->log(-s $cache_file, 'end_cache_file_size');
-}
-
-sub log
-{
-	my ($self, $data, @log_path) = @_;
-
-	if (!exists $self->{log_data})
-	{
-		$self->{log_data} = {};
-	}
-
-	$self->_insert_into_hashref($data, $self->{log_data}, @log_path);
+	$self->{log_data}->{end_cache_file_size} = -s $cache_file;
 }
 
 sub _insert_into_hashref
@@ -426,7 +419,7 @@ sub load_cache
 
 	if (!-e $cache_file)
 	{
-		$self->log(0,'start_cache_file_size');
+		$self->{log_data}->{start_cache_file_size} = 0;
 		$self->{cache} = {};
 		return;
 	}
@@ -436,12 +429,12 @@ sub load_cache
 	if (!defined $cache_data)
 	{
 		$repo->log("Error updating tweetstream.  Couldn't read from $cache_file\n");
-		$self->log(0,'start_cache_file_size');
+		$self->{log_data}->{start_cache_file_size} = 0;
 		$self->{cache} = {};
 		return;
 	}
 	
-	$self->log(-s $cache_file, 'start_cache_file_size');
+	$self->{log_data}->{start_cache_file_size} = -s $cache_file;
 	$self->{cache} = $cache_data;
 }
 
