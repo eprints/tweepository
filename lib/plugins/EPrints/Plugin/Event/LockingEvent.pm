@@ -14,6 +14,7 @@ sub new
         my $self = $class->SUPER::new(%params);
 
         $self->{log_data} = {};
+	$self->{sleep_time} = 10; #number of seconds to sleep while waiting
 
         return $self;
 }
@@ -42,7 +43,9 @@ sub wait
 			}
 		}
 		last unless $blocked;
-		sleep 10; #wait for the block to clear
+
+		my $t = $self->{sleep_time};
+		sleep $t; #wait for the block to clear
 	}
 
 }
@@ -76,7 +79,18 @@ sub write_log
 	open FILE, ">>$filename";
 	binmode FILE, ":utf8";
 
-	print FILE $self->generate_log_string, "\n\n";
+	print FILE $self->generate_log_string;
+
+	if ($self->{log_data}->{blocked_count})
+	{
+		print FILE "\n";
+		print FILE "Blocked by:\n";
+		foreach my $process (keys %{$self->{log_data}->{blocked_count}})
+		{
+			print FILE "\t$process -> " . $self->{log_data}->{blocked_count}->{$process} * $self->{sleep_time} . " seconds";
+		}
+	}
+	print FILE "\n\n";
 
 	close FILE;
 }
