@@ -19,6 +19,11 @@ sub _initialise_constants
 
 }
 
+sub blocked_by
+{
+	return ['Event::UpdateTweetStreamAbstracts', 'UpdateTweetStreams'];
+}
+
 sub action_export_tweetstream_packages
 {
 	my ($self, @ids) = @_;
@@ -289,6 +294,8 @@ sub export_single_tweetstream
 
 	$self->write_tweetstream_metadata;
 
+	#wait before we query the database (don't get in the way of the other processes
+	$self->wait;
 
 	my $sth = $db->prepare($self->_generate_sql_query($tsid));
 	$db->execute($sth);
@@ -305,9 +312,12 @@ sub export_single_tweetstream
 			$self->append_tweet_to_file($tweet);
 
 		}
+		#wait before we query the database
+		$self->wait;
 		$sth = $db->prepare($self->_generate_sql_query($tsid, $highid));
 		$db->execute($sth);
 	}
+	#tidy up
 	$self->close_file('csv');
 	$self->close_file('json');
 

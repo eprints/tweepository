@@ -18,6 +18,35 @@ sub new
         return $self;
 }
 
+sub blocked_by
+{
+	return [];
+}
+
+sub wait
+{
+	my ($self) = @_;
+	my $repo = $self->repository;
+
+	while (1)
+	{
+		my $blocked = 0;
+		foreach my $blocked_by (@{$self->blocked_by})
+		{
+			my $plugin = $repo->plugin($blocked_by);
+			if ($plugin->is_locked)
+			{
+				$self->output_status("Blocked by $blocked_by");
+				$blocked = 1;
+				$self->{log_data}->{blocked_count}->{$blocked_by}++;
+			}
+		}
+		last unless $blocked;
+		sleep 10; #wait for the block to clear
+	}
+
+}
+
 sub output_status
 {
         my ($self, @message) = @_;

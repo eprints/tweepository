@@ -9,6 +9,12 @@ use EPrints::Plugin::Event::LockingEvent;
 
 use strict;
 
+sub blocked_by
+{
+	my ($self) = @_;
+
+	return ['Event::UpdateTweetStreams'];
+}
 
 #opts
 #
@@ -41,8 +47,14 @@ sub action_update_tweetstream_abstracts
 		$self->{verbose} = 1;
 	}
 
+	if ($opts{recommit_tweets})
+	{
+		$self->{recommit_tweets} = 1;
+	}
+
 	#global cache of this update's profile_image_urls
-	$self->{profile_image_urls} = {};
+	$self->{profile_image_urls} = $self->read_cache_data('profile_image_urls');
+	$self->{profile_image_urls} = {} unless $self->{profile_image_urls}; #initialise if unset
 
 	$self->update_tweetstream_abstracts();
 
@@ -127,10 +139,19 @@ sub update_tweetstream_abstracts
 	my $tweet_count = 0;
 	foreach my $tweetid ($low_id..$high_id)
 	{
+		$self->wait; #let blocked_by plugins run their course
+
 		my $tweet = $tweet_ds->dataobj($tweetid);
 		next unless $tweet;
 
 		next unless $tweet->is_set('tweetstreams');
+
+		#this will reprocess the json of the tweet
+		if ($self->{recommit_tweets})
+		{
+			$tweet->set_value('newborn', 'TRUE');
+			$tweet->commit;
+		}
 
 		$tweet_count++; #number of processed tweets, for logging
 		$self->{log_data}->{highest_tweetid} = $tweetid; #highest ID processed, for logging
@@ -185,7 +206,6 @@ sub update_tweetstream_abstracts
 	$self->{log_data}->{update_objects_start_time} = scalar localtime time;
 	$self->{log_data}->{update_tweetstreams_sleeps} = 0;
 	my @updated_tweetstreams;
-	my $update_tweetstreams = $repo->plugin('Event::UpdateTweetStreams');
 	foreach my $tsid (sort keys %{$data})
 	{
 		#prepare the data
@@ -197,12 +217,7 @@ sub update_tweetstream_abstracts
 			$self->merge_in($ts_data, $cached_ts_data);
 		}
 
-		#wait until update_tweetstreams has finished as it will also be writing to tweetstream objects
-		while ($update_tweetstreams->is_locked)
-		{
-			$self->{log_data}->{update_tweetstreams_sleeps}++;
-			sleep 10;
-		}
+		$self->wait; #let blocked_by plugins run their course
 
 		my $tweetstream = $tweetstream_ds->dataobj($tsid);
 		next unless $tweetstream;
@@ -221,6 +236,7 @@ sub update_tweetstream_abstracts
 		$self->write_cache_data($data->{$tsid}, 'tweetstreams', $tsid);
 	}
 	$self->write_cache_data($high_id, 'highest_tweet_processed');
+	$self->write_cache_data($self->{profile_image_urls}, 'profile_image_urls');
 
 	$self->tidy_cache;
 

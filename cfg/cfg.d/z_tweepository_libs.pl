@@ -657,12 +657,14 @@ sub enrich_text
         return unless $message;
 
 	my $url_map = {};
+	my $expanded_urls = [];
 	my $tweet_data = $self->get_value('json_source');
 	if ($tweet_data->{entities})
 	{
 		foreach my $url_data (@{$tweet_data->{entities}->{urls}})
 		{
 			$url_map->{$url_data->{url}} = $url_data->{expanded_url};
+			push @{$expanded_urls}, $url_data->{expanded_url};
 		}
 	}
 
@@ -698,10 +700,44 @@ sub enrich_text
         $expanded_message =~ s/ESCAPED_HASH/#/g;
         $expanded_message =~ s/ESCAPED_AT/\@/g;
 
-	$self->set_value('urls_from_text', \@URLS);
+	#figure out if we have urls from entities (backwards compatibility to when twitter didn't supply entities)
+	if (scalar @{$expanded_urls})
+	{
+		$self->set_value('urls_from_text', $self->remove_bad_urls($expanded_urls));
+	}
+	else
+	{
+		$self->set_value('urls_from_text', $self->remove_bad_urls(\@URLS));
+	}
+
         $self->set_value('text_enriched', "$expanded_message"); #should have all the links expanded out now.
 
 	$self->set_value('text_is_enriched', 'TRUE');
+}
+
+#a number of URLs are detected that are not usefule.  Remove these.
+sub remove_bad_urls
+{
+	my ($self, $urls) = @_;
+
+	my $good_urls;
+
+	my $bad_urls = {
+		'http://' => 1,
+		'http:/' => 1,
+		'http:' => 1,
+		'http://t.c' => 1,
+		'http://t' => 1,
+		'http://t.co' => 1, #technically valid, but almost always a mistake
+	};
+
+	foreach my $url (@{$urls})
+	{
+		next if $bad_urls->{$url};
+ 		push @{$good_urls}, $url;
+	}
+
+	return $good_urls;
 }
 
 sub render_li
