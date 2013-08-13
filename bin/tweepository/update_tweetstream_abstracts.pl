@@ -1,27 +1,33 @@
 #!/usr/bin/perl -w
 
+#options:
+#
+#	--verbose -- output messages
+#	--update_from_zero -- remove the cache and reprocess all tweets
+# 	--recommit_tweets -- trigger regeneration of tweet objects from stored JSON
+
 use strict;
 use warnings;
 
 use EPrints;
+use Getopt::Long;
 
-my ($repoid, $update_from_zero) = @ARGV;
-die "update_tweetstream_abstracts.pl *repositoryid* [update_from_zero]\n" unless $repoid;
+my $verbose = 0;
+my $update_from_zero = 0;
+my $recommit_tweets = 0;
 
-#remove newline from last arg
-if ($update_from_zero)
-{
-	chomp $update_from_zero;
-}
-else
-{
-	chomp $repoid;
-}
+Getopt::Long::Configure("permute");
 
-if ($update_from_zero && $update_from_zero ne 'update_from_zero')
-{
-	die "malformed argument: '$update_from_zero' (should be 'update_from_zero')\n";
-}
+GetOptions(
+        'verbose' => \$verbose,
+	'update_from_zero' => \$update_from_zero,
+	'recommit_tweets' => \$recommit_tweets,
+); 
+
+
+my ($repoid) = @ARGV;
+die "update_tweetstream_abstracts.pl *repositoryid* [--verbose] [--update_from_zero] [--recommit_tweets]\n" unless $repoid;
+
 
 my $ep = EPrints->new;
 my $repo = $ep->repository($repoid);
@@ -31,8 +37,9 @@ my $plugin = $repo->plugin('Event::UpdateTweetStreamAbstracts');
 
 my %opts;
 
-$opts{update_from_zero} = 1 if $update_from_zero;
-$opts{verbose} = 1;
+$opts{update_from_zero} =  $update_from_zero;
+$opts{verbose} = $verbose;
+$opts{recommit_tweets} = $recommit_tweets;
 
 $plugin->action_update_tweetstream_abstracts(%opts);
 
