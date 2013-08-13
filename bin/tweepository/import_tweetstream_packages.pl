@@ -1,5 +1,7 @@
 #!/usr/bin/perl -w
 
+#this needs to be moved into a locking event so that it can give way
+
 use strict;
 use warnings;
 
