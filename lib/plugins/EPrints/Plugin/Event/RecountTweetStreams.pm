@@ -5,18 +5,14 @@ use EPrints::Plugin::Event::LockingEvent;
 
 use strict;
 
-sub blocked_by
-{
-        my ($self) = @_;
-
-        return ['Event::UpdateTweetStreams'];
-}
-
 sub action_recount_tweetstreams
 {
 	my ($self, $verbose) = @_;
 
 	$self->{verbose} = 1 if $verbose;
+
+	#don't start if update_tweetstreams is running
+	$self->wait;
 
 	if ($self->is_locked)
 	{
@@ -24,14 +20,12 @@ sub action_recount_tweetstreams
 		return;
 	}
 	$self->create_lock;
-
+sleep 20;
 	$self->output_status('Checking on update_tweetstreams');
-
-	$self->wait;
 
 	$self->output_status('update_tweetstreams not running');
 
-	$self->output_status('running query to get counts.  This may take some time...')
+	$self->output_status('running query to get counts.  This may take some time...');
 
 	my $counts = $self->get_tweetstream_counts;
 
@@ -46,7 +40,7 @@ sub action_recount_tweetstreams
 		if ($ts->value('status') eq 'active')
 		{
 			my $count = $counts->{$tweetstreamid};
-			$self->output_status("Updating tweetstream $tweetstreamid to count $count";
+			$self->output_status("Updating tweetstream $tweetstreamid to count $count");
 			$ts->set_value('tweet_count', $count);
 		}
 	}

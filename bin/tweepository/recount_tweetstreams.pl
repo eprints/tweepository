@@ -6,7 +6,7 @@ use warnings;
 use EPrints;
 use Getopt::Long;
 
-my $verbose = 0;
+my $silent = 0;
 
 Getopt::Long::Configure("permute");
 
@@ -26,9 +26,9 @@ my $plugin = $repo->plugin('Event::RecountTweetStreams');
 
 if ($silent)
 {
-	$plugin->action_update_tweetstreams;
+	$plugin->action_recount_tweetstreams;
 }
 else
 {
-	$plugin->action_update_tweetstreams(1);
+	$plugin->action_recount_tweetstreams(1);
 }
