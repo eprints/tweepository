@@ -8,7 +8,7 @@
    
   <stage name="default">
 
-<epc:if test="status != 'archived'">
+<epc:if test="status = 'active'">
   <epc:if test="!tweet_count">
     <component type="Field::Multi">
 	<title>Parameters</title>

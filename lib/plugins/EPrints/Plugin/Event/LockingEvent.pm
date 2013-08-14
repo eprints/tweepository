@@ -56,6 +56,11 @@ sub wait
 		foreach my $blocked_by (@{$self->blocked_by_plugins})
 		{
 			my $plugin = $repo->plugin($blocked_by);
+			if (!$plugin)
+			{
+				$repo->log("Couldn't created $blocked_by plugin");
+				next;
+			}
 			if ($plugin->is_locked)
 			{
 				$self->output_status("Blocked by $blocked_by");

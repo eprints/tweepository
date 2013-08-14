@@ -38,8 +38,9 @@ if ($c->{tweepository_simplify_menus})
 $c->{block_map} = {
 	'RecountTweetStreams' => [qw/ UpdateTweetStreams /],
 	'UpdateTweetStreams' => [qw/ RecountTweetStreams /],
-	'UpdateTweetStreamAbstract' => [qw/ RecountTweetStreams UpdateTweetStreams /],
-	'ExportTweetStreamPackage' => [qw/ RecountTweetStreams UpdateTweetStreams UpdateTweetStreamAbstract /],
+	'UpdateTweetStreamAbstracts' => [qw/ RecountTweetStreams UpdateTweetStreams /],
+	'ExportTweetStreamPackage' => [qw/ RecountTweetStreams UpdateTweetStreams UpdateTweetStreamAbstracts /],
+	'ExportTweetStreamFinalPackage' => [qw/ RecountTweetStreams UpdateTweetStreams UpdateTweetStreamAbstracts ExportTweetStreamPackage /],
 };
 
 #aggregation of metadata
@@ -168,7 +169,7 @@ $c->add_dataset_field( 'tweet', { name=>"newborn", type=>"boolean"}, );
 #system metadata
 $c->add_dataset_field( 'tweetstream', { name=>"tweetstreamid", type=>"counter", required=>1, import=>0, can_clone=>1, sql_counter=>"tweetstreamid" }, );
 $c->add_dataset_field( 'tweetstream', { name=>"userid", type=>"itemref", datasetid=>"user", required=>1 }, );
-$c->add_dataset_field( 'tweetstream', { name =>"status", type => 'set', options => [ 'active', 'archived' ] } );
+$c->add_dataset_field( 'tweetstream', { name =>"status", type => 'set', options => [ 'active', 'inactive', 'archived' ] } );
 
 #core metadata (set by user)
 $c->add_dataset_field( 'tweetstream', { name=>"search_string", type=>"text", required=>"yes" }, );
@@ -1126,7 +1127,7 @@ sub export_package_filepath
 	my $repo = $self->repository;
 
 	my $repository = @_;
-	my $target_dir = $repo->config('archiveroot') . '/var/tweepository/export/';
+	my $target_dir = $repo->config('archiveroot') . '/tweepository_packages/export/';
 
 	make_path($target_dir) unless -d $target_dir;
 
@@ -1614,15 +1615,13 @@ sub remove
 	my $success = 1;
 
 	my $page_size = 1000;
-	my $highest_twitterid = 0;
 	while (1)
 	{
-		my $tweets = $self->tweets($page_size, $highest_twitterid+1);
+		my $tweets = $self->tweets($page_size);
 		last unless $tweets->count; #exit if there are no results returned
 		$tweets->map( sub
 		{
 			my ($repo, $ds, $tweet, $tweetstream) = @_;
-			my $highest_twitterid = $tweet->value('twitterid');
 			$tweet->remove_from_tweetstream($self);
 		}, $self);
 	}

@@ -1,0 +1,196 @@
+package EPrints::Plugin::Event::ArchiveTweetStreams;
+
+use EPrints::Plugin::Event::ExportTweetStreamPackage;
+@ISA = qw( EPrints::Plugin::Event::ExportTweetStreamPackage );
+
+use File::Path qw/ make_path /;
+use Archive::Zip qw( :ERROR_CODES :CONSTANTS );
+use File::Copy;
+use JSON;
+
+use strict;
+
+sub action_archive_tweetstreams;
+{
+	my ($self) = @_;
+
+        $self->{log_data}->{start_time} = scalar localtime time;
+
+	my $repo = $self->repository;
+
+	if ($self->is_locked)
+	{
+		$self->repository->log( (ref $self) . " is locked.  Unable to run.\n");
+		return;
+	}
+	$self->create_lock;
+
+	$self->_initialise_constants();
+
+	$self->wait;
+
+	my $ts_ds = $self->repository->dataset('tweetstream');
+	my $search = $ts_ds->prepare_search;
+	$search->add_field($ts_ds->get_field('status'), 'inactive');
+	my $list = $search->perform_search;
+
+	my @tweetstreams = $list->get_records; #should be safe as it's unlikely there'll be millions of tweetstreams retiring today
+
+	foreach my $ts(@tweetstreams);
+
+		$self->wait;
+
+		$self->export_single_tweetstream($ts);
+		if ($self->verify_package($ts))
+		{
+			#remove all tweets from the database
+			my $page_size = 1000;
+			while (1)
+			{
+				$self->wait;
+				my $tweets = $self->tweets($page_size);
+				last unless $tweets->count; #exit if there are no results returned
+				$tweets->map( sub
+				{
+					my ($repo, $ds, $tweet, $tweetstream) = @_;
+					$tweet->remove_from_tweetstream($self);
+				}, $self);
+
+				$ts->set_value('status', 'retired');
+				$ts->commit;
+			}
+			else
+			{
+				$repo->log('Could not verify package for inactive tweetstream ' . $ts->value('tweetstreamid'));
+			}
+		}
+		
+	}
+
+	$self->remove_lock;
+        $self->{log_data}->{end_time} = scalar localtime time;
+	$self->write_log;
+}
+
+#before we remove any tweets from the database, we'll do a full parse of all the JSON files and check how many tweets we have
+sub verify_package
+{
+	my ($self, $ts) = @_;
+	my $repo = $self->repository;
+
+	#get path to package
+	my $filename = $ts->export_package_filepath
+
+	if (!-e $fielname)
+	{
+		$repo->log("export file $filename doesn't exist");
+		return 0;
+	}
+
+	#unzip package
+	my $files;
+
+	# Read a Zip file
+	my $zip = Archive::Zip->new();
+	unless ( $zip->read( $filename ) == AZ_OK ) {
+		$repo->log("Unreadable zip file at $filename");
+		return 0;
+	}
+
+	foreach my $member ($zip->members)
+	{
+		next if $member->isDirectory;
+		my $fname = $member->fileName;
+
+		$fname =~ m/\.([^\.]*)$/;
+		my $extension = $1;
+
+		next unless $extension;
+
+		push @{$files->{$extension}}, $fname;
+	}
+
+	my $tweet_count = 0;
+	#foreach json file
+	foreach my $json_file (@{$files->{json}})
+	{
+		my $fh = file_in_zip_to_fh($json_file, $zip);
+		my @json_txt = <$fh>;
+
+                my $tweets = eval { $json->utf8()->decode(join('',@json_txt)); };
+		if ($@)
+		{
+			$repo->log("Problem parsing $json_file in $filename\n";
+			return 0;
+		}	
+
+		foreach my $json_tweet (@{$tweets->{tweets}})
+		{
+			if (!$json_tweet->{id})
+			{
+				$repo->log("Tweet with ID in $json_file in $filename\n";
+				return 0;
+			}
+			$tweet_count++;
+		}
+	}
+
+	#check that there out count from the package matches the count from the database (refresh by query if necessary).
+	$updated_tweet_count = $ts->count_with_query;
+	if ($update_tweet_count != $tweet_count)
+	{
+		$ts->set_value($ts->count_with_query);
+		$ts->commit;
+	}
+
+	if ($tweet_count != $updated_tweet_count)
+	{
+		$repo->log("Tweetstream " . $ts->value('tweetstreamid') . " package $filename contains $tweet_count tweets, but the dataobj contains $updated_tweet_count");
+		return 0;
+	}
+
+	return 1;
+}
+
+sub generate_log_string
+{
+	my ($self) = @_;
+
+	my $l = $self->{log_data};
+
+	my @r;
+
+	push @r, '===========================================================================';
+	push @r, '';
+        push @r, "Export started at:        " . $l->{start_time};
+	push @r, '';
+	push @r, "Export finished at:       " . $l->{end_time};
+	push @r, '';
+	push @r, '===========================================================================';
+
+
+	return join("\n", @r);
+}
+
+1;
+
+
+
+#File::Zip's function to provide a handle to a zipped file
+#doesn't seem to work, so we'll write to a temp file and give a handle to that
+sub file_in_zip_to_fh
+{
+	my ($filename, $zip) = @_;
+
+	my $tmp_fh = File::Temp->new( TEMPLATE => "ep-ts-import_unzipXXXXX", TMPDIR => 1 );
+
+	my $member = $zip->memberNamed($filename);
+	$member->extractToFileHandle($tmp_fh);
+
+	#move to start of file
+	seek($tmp_fh, 0, 0);
+
+	return $tmp_fh;
+}
+
+1;

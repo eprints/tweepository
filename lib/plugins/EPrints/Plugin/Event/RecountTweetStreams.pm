@@ -20,7 +20,7 @@ sub action_recount_tweetstreams
 		return;
 	}
 	$self->create_lock;
-sleep 20;
+
 	$self->output_status('Checking on update_tweetstreams');
 
 	$self->output_status('update_tweetstreams not running');
@@ -42,6 +42,7 @@ sleep 20;
 			my $count = $counts->{$tweetstreamid};
 			$self->output_status("Updating tweetstream $tweetstreamid to count $count");
 			$ts->set_value('tweet_count', $count);
+			$ts->commit;
 		}
 	}
 

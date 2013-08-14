@@ -324,35 +324,20 @@ sub tidy_cache
 {
 	my ($self) = @_;
 
-	my $expired_tsids = $self->expired_tweetstreamids;
+	my $ts_ds = $self->repository->dataset('tweetstream');
 	my $ts_cache = $self->read_cache_data('tweetstreams');
 
-	foreach my $tsid (@{$expired_tsids})
+	foreach my $tsid (keys %{$ts_cache})
 	{
-		if (exists $ts_cache->{$tsid})
+		my $ts = $ts_ds->dataobj($tsid);
+		if (
+			!$ts #no tweetstream in database
+			|| ($ts->value('status') ne 'active') #inactive or retired, cache no longer needed
+		)
 		{
 			delete $ts_cache->{$tsid};
 		}
 	}
-}
-
-sub expired_tweetstreamids
-{
-	my ($self) = @_;
-	my $repo = $self->repository;
-	my $ts_ds = $repo->dataset('tweetstream');
-
-	my $offset = 60*60*24*3; #5 days before tweetstreams expire
-	my $deadline = EPrints::Time::get_iso_date(time - $offset);
-
-	my $search = $ts_ds->prepare_search;
-	$search->add_field(
-		$ts_ds->get_field( "expiry_date" ),
-		"-".$deadline );	
-
-	my $results = $search->perform_search;
-
-	return $results->ids;
 }
 
 sub write_cache_data
