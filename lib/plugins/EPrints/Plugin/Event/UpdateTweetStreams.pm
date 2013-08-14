@@ -30,6 +30,8 @@ sub action_update_tweetstreams
 
 	$self->{log_data}->{start_time} = scalar localtime time;
 
+	$self->wait;
+
 	my $nt = $self->connect_to_twitter;
 	if (!$nt)
 	{

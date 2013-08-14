@@ -5,6 +5,7 @@ $c->{plugins}{"Export::TweetStream::GraphML"}{params}{disable} = 0;
 $c->{plugins}{"Event::ExportTweetStreamPackage"}{params}{disable} = 0;
 $c->{plugins}{"Event::UpdateTweetStreams"}{params}{disable} = 0;
 $c->{plugins}{"Event::UpdateTweetStreamAbstracts"}{params}{disable} = 0;
+$c->{plugins}{"Event::RecountTweetStreams"}{params}{disable} = 0;
 $c->{plugins}{"Screen::EPMC::tweepository"}{params}{disable} = 0;
 $c->{plugins}{"Screen::TweetStreamSearch"}{params}{disable} = 0;
 $c->{plugins}{"Screen::ManageTweetstreamsLink"}{params}{disable} = 0;
@@ -33,6 +34,13 @@ if ($c->{tweepository_simplify_menus})
 
 	$c->{plugins}->{"Screen::FirstTool"}->{params}->{default} = "ManageTweetstreamsLink";
 }
+
+$c->{block_map} = {
+	'RecountTweetStreams' => [qw/ UpdateTweetStreams /],
+	'UpdateTweetStreams' => [qw/ RecountTweetStreams /],
+	'UpdateTweetStreamAbstract' => [qw/ RecountTweetStreams UpdateTweetStreams /],
+	'ExportTweetStreamPackage' => [qw/ RecountTweetStreams UpdateTweetStreams UpdateTweetStreamAbstract /],
+};
 
 #aggregation of metadata
 #maps name of field in tweet to name of aggregate field in tweetstream

@@ -21,7 +21,28 @@ sub new
 
 sub blocked_by
 {
-	return [];
+	my ($self) = @_;
+
+	my $blocked_by = $self->repository->config('block_map', $self->eventname);
+
+	$blocked_by = [] unless $blocked_by;
+
+	return $blocked_by;
+
+}
+
+sub blocked_by_plugins
+{
+	my ($self) = @_;
+
+	my $blocked_by = $self->blocked_by;
+
+	my $blocked_by_events = [];
+	foreach my $event (@{$blocked_by})
+	{
+		push @{$blocked_by_events}, "Event::$event";
+	}
+	return $blocked_by_events;
 }
 
 sub wait
@@ -32,7 +53,7 @@ sub wait
 	while (1)
 	{
 		my $blocked = 0;
-		foreach my $blocked_by (@{$self->blocked_by})
+		foreach my $blocked_by (@{$self->blocked_by_plugins})
 		{
 			my $plugin = $repo->plugin($blocked_by);
 			if ($plugin->is_locked)
@@ -100,12 +121,19 @@ sub _file_without_extension
 {
 	my ($self) = @_;
 
+	my $filename = EPrints::Utils::escape_filename( $self->eventname );
+
+	my $path = $self->repository->config('archiveroot') . '/var/' . $filename;
+}
+
+sub eventname
+{
+	my ($self) = @_;
+
 	my $classname = ref $self;
 	$classname =~ m/Event::(.*)/;
 
-	my $filename = EPrints::Utils::escape_filename( $1 );
-
-	my $path = $self->repository->config('archiveroot') . '/var/' . $filename;
+	return $1;
 }
 
 sub logfile

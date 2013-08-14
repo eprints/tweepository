@@ -9,13 +9,6 @@ use EPrints::Plugin::Event::LockingEvent;
 
 use strict;
 
-sub blocked_by
-{
-	my ($self) = @_;
-
-	return ['Event::UpdateTweetStreams'];
-}
-
 #opts
 #
 # update_from_zero --> deletes the cache and regenerates everything;

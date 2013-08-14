@@ -19,11 +19,6 @@ sub _initialise_constants
 
 }
 
-sub blocked_by
-{
-	return ['Event::UpdateTweetStreamAbstracts', 'UpdateTweetStreams'];
-}
-
 sub action_export_tweetstream_packages
 {
 	my ($self, @ids) = @_;
