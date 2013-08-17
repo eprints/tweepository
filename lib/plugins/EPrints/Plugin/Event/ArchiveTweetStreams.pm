@@ -10,13 +10,15 @@ use JSON;
 
 use strict;
 
-sub action_archive_tweetstreams;
+sub action_archive_tweetstreams
 {
-	my ($self) = @_;
+	my ($self, %args) = @_;
 
         $self->{log_data}->{start_time} = scalar localtime time;
 
 	my $repo = $self->repository;
+
+	$self->{verbose} = 1 if $args{verbose};
 
 	if ($self->is_locked)
 	{
@@ -29,6 +31,8 @@ sub action_archive_tweetstreams;
 
 	$self->wait;
 
+	$self->output_status('Getting Inactive TweetStreams');
+
 	my $ts_ds = $self->repository->dataset('tweetstream');
 	my $search = $ts_ds->prepare_search;
 	$search->add_field($ts_ds->get_field('status'), 'inactive');
@@ -36,36 +40,57 @@ sub action_archive_tweetstreams;
 
 	my @tweetstreams = $list->get_records; #should be safe as it's unlikely there'll be millions of tweetstreams retiring today
 
-	foreach my $ts(@tweetstreams);
+	TWEETSTREAM: foreach my $ts(@tweetstreams)
+	{
+		#don't do this tweetstream if it's small and we only archive large ones.
+		#would be more efficient to do this in the above search...
+		if ($repo->config('only_archive_large_tweetstreams'))
+		{
+			my $tweet_count = $ts->value('tweet_count');
+			if ($tweet_count <= $repo->config('tweepository_export_threshold'))
+			{
+				$self->output_status($ts->value('tweetstreamid') . " is small, not archiving");
+				next TWEETSTREAM;
+			}
+		}
 
 		$self->wait;
 
+		$self->output_status("Creating Package for " . $ts->value('tweetstreamid')); 
+
 		$self->export_single_tweetstream($ts);
+
+		$self->output_status("Package created, now verifying");
+
 		if ($self->verify_package($ts))
 		{
 			#remove all tweets from the database
 			my $page_size = 1000;
+			my $tweet_count = $ts->value('tweet_count');
 			while (1)
 			{
 				$self->wait;
-				my $tweets = $self->tweets($page_size);
+				$self->output_status("Removing $page_size of $tweet_count tweets");
+				my $tweets = $ts->tweets($page_size);
 				last unless $tweets->count; #exit if there are no results returned
 				$tweets->map( sub
 				{
 					my ($repo, $ds, $tweet, $tweetstream) = @_;
-					$tweet->remove_from_tweetstream($self);
+					$tweet->remove_from_tweetstream($ts);
 				}, $self);
-
-				$ts->set_value('status', 'retired');
-				$ts->commit;
 			}
-			else
-			{
-				$repo->log('Could not verify package for inactive tweetstream ' . $ts->value('tweetstreamid'));
-			}
+			$ts->set_value('status', 'archived');
+			$ts->commit;
+		}
+		else
+		{
+			$self->output_status('Verification Failed, not retiring tweetstream');
+			$repo->log('Could not verify package for inactive tweetstream ' . $ts->value('tweetstreamid'));
 		}
 		
 	}
+
+	$self->output_status('Retiring Done');
 
 	$self->remove_lock;
         $self->{log_data}->{end_time} = scalar localtime time;
@@ -79,9 +104,9 @@ sub verify_package
 	my $repo = $self->repository;
 
 	#get path to package
-	my $filename = $ts->export_package_filepath
+	my $filename = $ts->export_package_filepath;
 
-	if (!-e $fielname)
+	if (!-e $filename)
 	{
 		$repo->log("export file $filename doesn't exist");
 		return 0;
@@ -110,17 +135,21 @@ sub verify_package
 		push @{$files->{$extension}}, $fname;
 	}
 
+        my $json = JSON->new->allow_nonref;
+
 	my $tweet_count = 0;
 	#foreach json file
-	foreach my $json_file (@{$files->{json}})
+	foreach my $json_file (sort @{$files->{json}})
 	{
 		my $fh = file_in_zip_to_fh($json_file, $zip);
 		my @json_txt = <$fh>;
 
+		$self->output_status('verifying json file ' . $json_file);
+
                 my $tweets = eval { $json->utf8()->decode(join('',@json_txt)); };
 		if ($@)
 		{
-			$repo->log("Problem parsing $json_file in $filename\n";
+			$repo->log("Problem parsing $json_file in $filename\n");
 			return 0;
 		}	
 
@@ -128,20 +157,23 @@ sub verify_package
 		{
 			if (!$json_tweet->{id})
 			{
-				$repo->log("Tweet with ID in $json_file in $filename\n";
+				$repo->log("Tweet with ID in $json_file in $filename\n");
 				return 0;
 			}
 			$tweet_count++;
 		}
 	}
 
+	$self->wait;
 	#check that there out count from the package matches the count from the database (refresh by query if necessary).
-	$updated_tweet_count = $ts->count_with_query;
-	if ($update_tweet_count != $tweet_count)
+	my $updated_tweet_count = $ts->count_with_query;
+	if ($updated_tweet_count != $tweet_count)
 	{
-		$ts->set_value($ts->count_with_query);
+		$ts->set_value($updated_tweet_count);
 		$ts->commit;
 	}
+
+	$self->output_status("Count from query: $updated_tweet_count, Count from JSON verify: $tweet_count\n");
 
 	if ($tweet_count != $updated_tweet_count)
 	{

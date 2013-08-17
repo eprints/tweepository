@@ -13,7 +13,9 @@ use strict;
 #retire expired tweetstreams
 sub action_deactivate_tweetstreams
 {
-	my ($self) = @_;
+	my ($self, %opts) = @_;
+
+	$self->{verbose} = 1 if $opts{verbose};
 
 	if ($self->is_locked)
 	{
@@ -25,7 +27,11 @@ sub action_deactivate_tweetstreams
 	my $repo = $self->repository;
 	my $ts_ds = $self->repository->dataset('tweetstream');
 
-	my $exired_tweetstreamids = $self->expired_tweetstreamids;
+	$self->output_status('Finding expired tweetstreams');
+
+	my $expired_tweetstreamids = $self->expired_tweetstreamids;
+
+	$self->output_status('Found ' . join(',',@{$expired_tweetstreamids}));
 
 	foreach my $ts_id (@{$expired_tweetstreamids})
 	{
@@ -33,8 +39,10 @@ sub action_deactivate_tweetstreams
 		my $ts = $ts_ds->dataobj($ts_id);
 		$ts->set_value('status', 'inactive');
 		$ts->commit;
+		$self->output_status("Setting $ts_id to inactive");
 	}
 
+	$self->output_status("done");
 	$self->remove_lock;
 }
 
@@ -51,6 +59,9 @@ sub expired_tweetstreamids
         $search->add_field( 
                 $ts_ds->get_field( "expiry_date" ), 
                 "-".$deadline );         
+        $search->add_field( 
+                $ts_ds->get_field( "status" ), 
+                'active' );         
  
         my $results = $search->perform_search; 
  

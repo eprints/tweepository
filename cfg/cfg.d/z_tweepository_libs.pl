@@ -1,16 +1,23 @@
-$c->{plugins}{"Export::TweetStream::JSON"}{params}{disable} = 0;
-$c->{plugins}{"Export::TweetStream::CSV"}{params}{disable} = 0;
-$c->{plugins}{"Export::TweetStream::HTML"}{params}{disable} = 0;
-$c->{plugins}{"Export::TweetStream::GraphML"}{params}{disable} = 0;
-$c->{plugins}{"Event::ExportTweetStreamPackage"}{params}{disable} = 0;
-$c->{plugins}{"Event::UpdateTweetStreams"}{params}{disable} = 0;
-$c->{plugins}{"Event::UpdateTweetStreamAbstracts"}{params}{disable} = 0;
-$c->{plugins}{"Event::RecountTweetStreams"}{params}{disable} = 0;
-$c->{plugins}{"Screen::EPMC::tweepository"}{params}{disable} = 0;
-$c->{plugins}{"Screen::TweetStreamSearch"}{params}{disable} = 0;
-$c->{plugins}{"Screen::ManageTweetstreamsLink"}{params}{disable} = 0;
-$c->{plugins}{"Screen::RequestTweetStreamExport"}{params}{disable} = 0;
-
+foreach my $pluginid (qw/
+	Event::ArchiveTweetStreams
+	Event::DeactivateTweetStreams
+	Event::ExportTweetStreamPackage
+	Event::LockingEvent
+	Event::RecountTweetStreams
+	Event::UpdateTweetStreamAbstracts
+	Event::UpdateTweetStreams
+	Export::TweetStream::CSV
+	Export::TweetStream::GraphML
+	Export::TweetStream::HTML
+	Export::TweetStream::JSON
+	Screen::EPMC::tweepository
+	Screen::ManageTweetstreamsLink
+	Screen::RequestTweetStreamExport
+	Screen::TweetStreamSearch
+/)
+{
+	$c->{plugins}{$pluginid}{params}{disable} = 0;
+}
 
 
 $c->{plugins}->{"Workflow::View"}->{appears}->{key_tools} = 100;

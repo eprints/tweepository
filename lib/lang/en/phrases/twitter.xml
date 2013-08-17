@@ -142,6 +142,16 @@
     <epp:phrase id="tweetstream_fieldname_top_urls_from_text">Top Links</epp:phrase>
     <epp:phrase id="tweetstream_fieldname_top_urls_from_text_count">Top URLs</epp:phrase>
     <epp:phrase id="tweetstream_fieldname_top_urls_from_text_url_from_text">URL</epp:phrase>
+    <epp:phrase id="tweetstream_fieldname_top_retweeted">Top Retweeted</epp:phrase>
+    <epp:phrase id="tweetstream_fieldname_top_retweeted_count">Top Retweeted</epp:phrase>
+    <epp:phrase id="tweetstream_fieldname_top_retweeted_retweeted">Retweeted</epp:phrase>
+    <epp:phrase id="tweetstream_fieldname_top_reply_tos">Top Reply Tos</epp:phrase>
+    <epp:phrase id="tweetstream_fieldname_top_reply_tos_count">Top Reply Tos</epp:phrase>
+    <epp:phrase id="tweetstream_fieldname_top_reply_tos_reply_to">Reply Tos</epp:phrase>
+    <epp:phrase id="tweetstream_fieldname_status">Status</epp:phrase>
+    <epp:phrase id="tweetstream_fieldopt_status_active">Active</epp:phrase>
+    <epp:phrase id="tweetstream_fieldopt_status_inactive">Inactive</epp:phrase>
+    <epp:phrase id="tweetstream_fieldopt_status_archived">Archived</epp:phrase>
     <epp:phrase id="tweetstream_fieldname_tweet_count">Number of Tweets</epp:phrase>
     <epp:phrase id="tweetstream_fieldname_tweetees_ncols">Max Tweetees</epp:phrase> 
     <epp:phrase id="tweetstream_fieldname_tweets">Tweets</epp:phrase> 

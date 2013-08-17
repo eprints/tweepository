@@ -16,6 +16,8 @@ $c->{tweepository_tools_on_summary_page} = [
 
 #the tweet_count at which the user is warned not to export
 $c->{tweepository_export_threshold} = 100000;
+#only archive larger tweetsreams (preserve export functionality for smaller ones)
+$c->{tweepository_only_archive_large_tweetstreams} = 1;
 
 #tidier screens achieved by having n divisible by cols
 # n -> how many to store

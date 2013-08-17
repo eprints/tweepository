@@ -150,13 +150,20 @@ sub _generate_sql_query
 	return join(' ',@parts);
 }
 
+sub reset_tmp_dir
+{
+	my ($self) = @_;
+
+	$self->{tmp_dir} = File::Temp->newdir( "ep-ts-export-tempXXXXX", TMPDIR => 1 );
+}
+
 sub create_fh
 {
 	my ($self, $type, $page) = @_;
 
 	if (!$self->{tmp_dir})
 	{
-		$self->{tmp_dir} = File::Temp->newdir( "ep-ts-export-tempXXXXX", TMPDIR => 1 );
+		$self->reset_tmp_dir;
 	}
 	my $base_dir = $self->{tmp_dir};
 
@@ -280,7 +287,12 @@ sub export_single_tweetstream
 {
 	my ($self, $ts) = @_;
 
+	$self->reset_tmp_dir; #need a new tempdir for each export
+	$self->{files} = {}; #reset filename counters etc. -- should rewrite the whole process to make it less hacky
+
 	$self->{current_tweetstream} = $ts;
+
+	$self->output_status('Generating Package for tweetstream ' . $ts->value('tweetstreamid'));
 
 	my $repo = $self->repository;
 	my $db = $repo->database;
@@ -292,6 +304,8 @@ sub export_single_tweetstream
 	#wait before we query the database (don't get in the way of the other processes
 	$self->wait;
 
+	$self->output_status('processing a page of tweets');
+
 	my $sth = $db->prepare($self->_generate_sql_query($tsid));
 	$db->execute($sth);
 
@@ -300,15 +314,19 @@ sub export_single_tweetstream
 		my $highid;
 		while (my $row = $sth->fetchrow_hashref)
 		{
-			$highid = $row->{twitterid}; #they're coming out in ascending order
+			$highid = $row->{twitterid}; #they're coming out in ascending order, so we don't need to care about testing if it's higher
 	
 			my $tweet = $ds->dataobj($row->{tweetid});
+
+			next unless $tweet;
 
 			$self->append_tweet_to_file($tweet);
 
 		}
 		#wait before we query the database
 		$self->wait;
+
+		$self->output_status('processing a page of tweets');
 		$sth = $db->prepare($self->_generate_sql_query($tsid, $highid));
 		$db->execute($sth);
 	}
@@ -316,9 +334,13 @@ sub export_single_tweetstream
 	$self->close_file('csv');
 	$self->close_file('json');
 
+	$self->output_status('generating zip file');
+
 	my $final_filepath = $ts->export_package_filepath;
 	unlink $final_filepath if -e $final_filepath; #if there's one already, delete it before creating the zip
 	create_zip($self->{tmp_dir}, "tweetstream$tsid", $final_filepath );
+
+	$self->output_status('Done generating package');
 }
 
 
