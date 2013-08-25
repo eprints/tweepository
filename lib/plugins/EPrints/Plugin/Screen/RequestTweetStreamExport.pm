@@ -55,6 +55,14 @@ sub allow_export
 	return $self->can_be_viewed;
 }
 
+sub allow_queue_export
+{
+	my ($self) = @_;
+
+	return 0 unless ($self->{processor}->{dataobj}->value('status') eq 'active');
+	return $self->can_be_viewed;
+}
+
 sub render
 {
 	my( $self ) = @_;
@@ -101,7 +109,10 @@ sub render
 			$div->appendChild($self->html_phrase('package_absent'));
 		}
 
-		$div->appendChild( $self->form_with_buttons(queue_export => $self->phrase('queue_export')));
+		if ($self->allow_queue_export)
+		{
+			$div->appendChild( $self->form_with_buttons(queue_export => $self->phrase('queue_export')));
+		}
 	}
 
 #	$div->appendChild( $self->html_phrase("sure_delete",

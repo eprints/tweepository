@@ -40,6 +40,7 @@ sub action_export_tweetstream_packages
 	{
 		my $ts = $repo->dataset('tweetstream')->dataobj($id);
 		next unless $ts;
+		#note no check on status.  Only queued exports are disallowed -- we can still request package regeneration of inactive tweetstreams by hand from the command line
 		$self->export_single_tweetstream($ts);
 	}
 
@@ -119,7 +120,11 @@ sub export_requested_tweetstreams
 			$export->set_value('status','running');
 			$export->commit();
 			my $ts = $repo->dataset('tweetstream')->dataobj($tsid) if $tsid;
-			if ($ts)
+			if
+			(
+				$ts 
+				&& ($ts->value('status') eq 'active') #only export active tweetstreams
+			)
 			{
 				$self->export_single_tweetstream($ts);
 			}
@@ -336,8 +341,10 @@ sub export_single_tweetstream
 
 	$self->output_status('generating zip file');
 
+	$ts->delete_export_package;
+
 	my $final_filepath = $ts->export_package_filepath;
-	unlink $final_filepath if -e $final_filepath; #if there's one already, delete it before creating the zip
+
 	create_zip($self->{tmp_dir}, "tweetstream$tsid", $final_filepath );
 
 	$self->output_status('Done generating package');

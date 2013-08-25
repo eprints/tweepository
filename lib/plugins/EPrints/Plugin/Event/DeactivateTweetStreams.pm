@@ -40,6 +40,9 @@ sub action_deactivate_tweetstreams
 		$ts->set_value('status', 'inactive');
 		$ts->commit;
 		$self->output_status("Setting $ts_id to inactive");
+
+		#remove package, if it exists -- this will be regenerated as the tweetstream is archived
+		$ts->delete_export_package;
 	}
 
 	$self->output_status("done");

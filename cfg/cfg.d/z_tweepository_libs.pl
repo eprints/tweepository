@@ -1128,6 +1128,17 @@ sub _package_request
 	return undef;
 }
 
+sub delete_export_package
+{
+	my ($self) = @_;
+
+	if (-e $self->export_package)
+	{
+		unlink $self->export_packagel
+	}
+}
+
+
 sub export_package_filepath
 {
 	my ($self) = @_;
@@ -1778,6 +1789,11 @@ sub render_exporters
 	$tweet_count = 0 unless $tweet_count;
 	my $threshold = $repository->config('tweepository_export_threshold');
 	$threshold = 100000 unless $threshold;
+
+	if ($self->value('status') != 'active')
+	{
+		return $repository->html_phrase('TweetStream/export_not_active');
+	}
 
 	if ($self->value('tweet_count') > $threshold)
 	{
