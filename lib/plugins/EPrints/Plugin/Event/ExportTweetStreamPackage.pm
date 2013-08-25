@@ -306,7 +306,7 @@ sub export_single_tweetstream
 	my $ds = $repo->dataset('tweet');
 	my $tsid = $ts->id;
 
-	my $tweet_count = $ts->tweet_count;
+	my $tweet_count = $ts->value('tweet_count');
 	my $n = 0;
 
 	$self->write_tweetstream_metadata;

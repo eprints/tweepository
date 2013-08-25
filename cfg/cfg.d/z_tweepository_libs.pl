@@ -43,11 +43,21 @@ if ($c->{tweepository_simplify_menus})
 }
 
 $c->{block_map} = {
+#UpdateTweetStreams is the highest priority process, so it sits on top of eveything.
+#RecountTweetStreams is run by hand if something goes wrong with the running counts that UpdateTweetStreams does
 	'RecountTweetStreams' => [qw/ UpdateTweetStreams /],
 	'UpdateTweetStreams' => [qw/ RecountTweetStreams /],
+
+#UpdateTweetStreamAbstracts is the nightly job, and it will give way to the above processes to avoid hitting the database and delaying UpdateTweetStreams
 	'UpdateTweetStreamAbstracts' => [qw/ RecountTweetStreams UpdateTweetStreams /],
+
+
+#User Requested Package -- blocked by processes above as they keep the repository running
 	'ExportTweetStreamPackage' => [qw/ RecountTweetStreams UpdateTweetStreams UpdateTweetStreamAbstracts /],
-	'ExportTweetStreamFinalPackage' => [qw/ RecountTweetStreams UpdateTweetStreams UpdateTweetStreamAbstracts ExportTweetStreamPackage /],
+
+#Retiring Tweetstreams -- lowest priority
+	'DeactivateTweetStreams' => [qw/ RecountTweetStreams UpdateTweetStreams UpdateTweetStreamAbstracts ExportTweetStreamPackage /],
+	'ArchiveTweetStreams' => [qw/ RecountTweetStreams UpdateTweetStreams UpdateTweetStreamAbstracts ExportTweetStreamPackage DeactivateTweetStreams /]
 };
 
 #aggregation of metadata
@@ -1132,9 +1142,9 @@ sub delete_export_package
 {
 	my ($self) = @_;
 
-	if (-e $self->export_package)
+	if (-e $self->export_package_filepath)
 	{
-		unlink $self->export_packagel
+		unlink $self->export_package_filepath
 	}
 }
 
