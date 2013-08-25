@@ -2,6 +2,9 @@
 
 <cite:citation xmlns="http://www.w3.org/1999/xhtml" xmlns:cite="http://eprints.org/ep3/citation" xmlns:epc="http://eprints.org/ep3/control">
 
+<epc:if test="status = 'active'">
+
+
 <epc:if test="is_set(oldest_tweets)">
 <!--if the field is set then we've generated the abstract at least once -->
 
@@ -69,6 +72,54 @@
 <li>There may be a problem with the system.  If you've tried both of the above, please contact an administrator</li>
 </ul>
 </p>
+
+</epc:if>
+</epc:if>
+
+<epc:if test="status != 'active'">
+<p>Harvesting of this TweetStream has now finished and the results have been removed from the database and stored in a package.  The package should be available for download (unless it is currently being generated).</p>
+<p>Due to this, some abstract page functionality has been disabled.</p>
+
+<div class='tweetstream_summary'>
+<table> 
+<tr valign = 'top'>
+<td>
+
+    <h2>Tools</h2>
+	<epc:print expr="tools"/>
+    <h2>Top Tweeters</h2>
+    <div style="margin-left: 3em">
+      <epc:print expr="top_from_users"/>
+    </div>
+
+    <h2>Top Hashtags</h2>
+    <div style="margin-left: 3em">
+      <epc:print expr="top_hashtags"/>
+    </div>
+
+    <h2>Top Mentions</h2>
+    <div style="margin-left: 3em">
+      <epc:print expr="top_tweetees"/>
+    </div>
+
+</td>
+<td valign = 'top' style = 'padding-left: 1em'>
+
+    <h2>Top Links</h2>
+    <div style="margin-left: 3em">
+      <epc:print expr="top_urls_from_text"/>
+    </div>
+
+    <h2>Tweet Frequency</h2>
+    <div style="margin-left: 3em">
+      <epc:print expr="frequency_values"/>
+    </div>
+
+</td>
+</tr>
+</table>
+</div>
+
 
 </epc:if>
 
