@@ -31,7 +31,6 @@
 	<field ref="title" />
 	<field ref="project_title" />
 	<field ref="abstract" />
-	<field ref="status" />
     </component>
 
   </stage>
