@@ -147,17 +147,19 @@ sub add_tweets_to_tweetstream
                                         {
                                                 twitterid => $twitterid,
                                                 json_source => $json_tweet,
-                                                tweetstreams => [$ts->id],
+#                                                tweetstreams => [$ts->id],
                                         }
                                 );
 				$STATE->{tweets_created} += 1;
                         }
 			else
 			{
-				$tweetobj->add_to_tweetstream($ts);
 				$STATE->{tweets_existing} += 1;
 			}
 			$tweetobj->commit;
+
+			#this is an interim solution.  It would be better to collect a few hundred and then add them.
+			$ts->add_tweets([$tweetobj]);
 		}
 
 	}
