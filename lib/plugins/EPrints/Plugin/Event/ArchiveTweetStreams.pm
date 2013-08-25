@@ -84,6 +84,10 @@ sub action_archive_tweetstreams
 		}
 		else
 		{
+			$ts->delete_export_package; #don't allow downloading of it -- it failed validation
+
+			#todo -- prevent downloading of package while it's being validated.
+
 			$self->output_status('Verification Failed, not retiring tweetstream');
 			$repo->log('Could not verify package for inactive tweetstream ' . $ts->value('tweetstreamid'));
 		}
