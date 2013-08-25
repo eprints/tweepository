@@ -40,8 +40,10 @@ sub action_export_tweetstream_packages
 	{
 		my $ts = $repo->dataset('tweetstream')->dataobj($id);
 		next unless $ts;
-		#note no check on status.  Only queued exports are disallowed -- we can still request package regeneration of inactive tweetstreams by hand from the command line
-		$self->export_single_tweetstream($ts);
+		if ($ts->value('status') ne 'archived')
+		{
+			$self->export_single_tweetstream($ts);
+		}
 	}
 
 	$self->remove_lock;
@@ -304,18 +306,22 @@ sub export_single_tweetstream
 	my $ds = $repo->dataset('tweet');
 	my $tsid = $ts->id;
 
+	my $tweet_count = $ts->tweet_count;
+	my $n = 0;
+
 	$self->write_tweetstream_metadata;
 
 	#wait before we query the database (don't get in the way of the other processes
 	$self->wait;
-
-	$self->output_status('processing a page of tweets');
 
 	my $sth = $db->prepare($self->_generate_sql_query($tsid));
 	$db->execute($sth);
 
 	while ($sth->rows > 0)
 	{
+		$n += $sth->rows;
+		$self->output_status("Packaging: $n of $tweet_count");
+
 		my $highid;
 		while (my $row = $sth->fetchrow_hashref)
 		{
@@ -331,7 +337,6 @@ sub export_single_tweetstream
 		#wait before we query the database
 		$self->wait;
 
-		$self->output_status('processing a page of tweets');
 		$sth = $db->prepare($self->_generate_sql_query($tsid, $highid));
 		$db->execute($sth);
 	}

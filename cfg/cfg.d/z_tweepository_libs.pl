@@ -1790,9 +1790,9 @@ sub render_exporters
 	my $threshold = $repository->config('tweepository_export_threshold');
 	$threshold = 100000 unless $threshold;
 
-	if ($self->value('status') != 'active')
+	if ($self->value('status') eq 'archived')
 	{
-		return $repository->html_phrase('TweetStream/export_not_active');
+		return $repository->html_phrase('TweetStream/export_archived');
 	}
 
 	if ($self->value('tweet_count') > $threshold)

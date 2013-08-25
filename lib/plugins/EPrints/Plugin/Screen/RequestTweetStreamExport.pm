@@ -70,6 +70,23 @@ sub render
 	my $session = $self->{session};
 	my $ts = $self->{processor}->{dataobj};
 
+	if ($ts->value('status') eq 'active')
+	{
+		return $self->render_active;
+	}
+	else
+	{
+		return $self->render_non_active;
+	}
+}	
+
+sub render_active
+{
+	my( $self ) = @_;
+
+	my $session = $self->{session};
+	my $ts = $self->{processor}->{dataobj};
+
 	my $div = $session->make_element( "div", class=>"ep_block" );
 
 	$div->appendChild($self->html_phrase('preamble'));
@@ -83,26 +100,7 @@ sub render
 		my $file = $ts->export_package_filepath;
 		if (-e $file)
 		{
-			my $size = -s $file;
-			if ($size >= (1024 * 1024))
-			{
-				$size = sprintf("%.1f", ($size / (1024 * 1024))) . ' MB';
-			}
-			elsif ($size >= 1024)
-			{
-				$size = sprintf("%.1f", ($size / 1024 )) . ' KB';
-			}
-
-			$size = $session->make_text($size);
-
-			my $mtime = (stat( $file ))[9];
-			my $date = $session->make_text(scalar localtime($mtime));
-
-			$div->appendChild($self->html_phrase('package_exists',
-				filesize => $size,
-				datestamp => $date,	
-				downloadbutton => $self->form_with_buttons( export_redir => $self->phrase('export_redir') )
-			));
+			$div->appendChild($self->_render_package_details);
 		}
 		else
 		{
@@ -111,6 +109,7 @@ sub render
 
 		if ($self->allow_queue_export)
 		{
+			$div->appendChild( $self->html_phrase('generate_preamble'));
 			$div->appendChild( $self->form_with_buttons(queue_export => $self->phrase('queue_export')));
 		}
 	}
@@ -120,7 +119,65 @@ sub render
 #
 
 	return( $div );
-}	
+}
+
+sub render_non_active
+{
+	my ($self) = @_;
+
+	my $session = $self->{session};
+	my $ts = $self->{processor}->{dataobj};
+
+	my $div = $session->make_element( "div", class=>"ep_block" );
+
+	$div->appendChild($self->html_phrase('non_active_preamble'));
+
+	my $file = $ts->export_package_filepath;
+	if (-e $file)
+	{
+		$div->appendChild($self->_render_package_details);
+	}
+	else
+	{
+		$div->appendChild($self->html_phrase('non_active_package_absent'));
+	}
+
+	return $div;
+}
+
+sub _render_package_details
+{
+	my ($self) = @_;
+
+	my $session = $self->{session};
+	my $ts = $self->{processor}->{dataobj};
+	my $file = $ts->export_package_filepath;
+
+	#sanity check
+	return $self->repository->xml->create_document_fragment unless -e $file;
+
+	my $size = -s $file;
+	if ($size >= (1024 * 1024))
+	{
+		$size = sprintf("%.1f", ($size / (1024 * 1024))) . ' MB';
+	}
+	elsif ($size >= 1024)
+	{
+		$size = sprintf("%.1f", ($size / 1024 )) . ' KB';
+	}
+
+	$size = $session->make_text($size);
+
+	my $mtime = (stat( $file ))[9];
+	my $date = $session->make_text(scalar localtime($mtime));
+
+	return $self->html_phrase('package_exists',
+		filesize => $size,
+		datestamp => $date,	
+		downloadbutton => $self->form_with_buttons( export_redir => $self->phrase('export_redir') )
+	);
+}
+
 
 sub form_with_buttons
 {

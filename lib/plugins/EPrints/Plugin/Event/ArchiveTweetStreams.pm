@@ -42,6 +42,7 @@ sub action_archive_tweetstreams
 
 	TWEETSTREAM: foreach my $ts(@tweetstreams)
 	{
+
 		#don't do this tweetstream if it's small and we only archive large ones.
 		#would be more efficient to do this in the above search...
 		if ($repo->config('only_archive_large_tweetstreams'))
@@ -49,12 +50,19 @@ sub action_archive_tweetstreams
 			my $tweet_count = $ts->value('tweet_count');
 			if ($tweet_count <= $repo->config('tweepository_export_threshold'))
 			{
-				$self->output_status($ts->value('tweetstreamid') . " is small, not archiving");
+				#generate final package if needed (note that the process that makes it inactive removes the package), but don't erase from database
+				if (!-e $ts->export_package_filepath)
+				{
+					$self->output_status($ts->value('tweetstreamid') . " is small, creating package");
+					$self->wait;
+					$self->export_single_tweetstream($ts);
+				}
+				$self->output_status($ts->value('tweetstreamid') . " is small, not removing from DB");
+
+				#################
 				next TWEETSTREAM;
 			}
 		}
-
-		$self->wait;
 
 		$self->output_status("Creating Package for " . $ts->value('tweetstreamid')); 
 
@@ -62,6 +70,7 @@ sub action_archive_tweetstreams
 
 		$self->output_status("Package created, now verifying");
 
+		my $n = 0;
 		if ($self->verify_package($ts))
 		{
 			#remove all tweets from the database
@@ -70,7 +79,8 @@ sub action_archive_tweetstreams
 			while (1)
 			{
 				$self->wait;
-				$self->output_status("Removing $page_size of $tweet_count tweets");
+				$n += $page_size;
+				$self->output_status("Removing $n of (about) $tweet_count tweets");
 				my $tweets = $ts->tweets($page_size);
 				last unless $tweets->count; #exit if there are no results returned
 				$tweets->map( sub
