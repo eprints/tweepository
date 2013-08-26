@@ -56,7 +56,16 @@ sub action_export_queued_tweetstream_packages
 {
 	my ($self) = @_;
 
+        $self->{log_data}->{start_time} = scalar localtime time;
+
 	my $repo = $self->repository;
+
+	if ($self->is_locked)
+	{
+		$self->repository->log( (ref $self) . " is locked.  Unable to run.\n");
+		return;
+	}
+	$self->create_lock;
 
 	my $ds = $repo->dataset('tsexport');
 
@@ -76,20 +85,12 @@ sub action_export_queued_tweetstream_packages
                 value => 'pending',
         },] )->count;
 
-	return unless $pending_count >= 1; #just leave if there are no requests
-
-        $self->{log_data}->{start_time} = scalar localtime time;
-
-	if ($self->is_locked)
-	{
-		$self->repository->log( (ref $self) . " is locked.  Unable to run.\n");
-		return;
-	}
-	$self->create_lock;
-
 	$self->_initialise_constants();
 
-	$self->export_requested_tweetstreams;
+	if ($pending_count >= 1)
+	{
+		$self->export_requested_tweetstreams;
+	}
 
 	$self->remove_lock;
         $self->{log_data}->{end_time} = scalar localtime time;
@@ -300,6 +301,7 @@ sub export_single_tweetstream
 	$self->{current_tweetstream} = $ts;
 
 	$self->output_status('Generating Package for tweetstream ' . $ts->value('tweetstreamid'));
+	$self->{log_data}->{tweetstreams_exported}->{$ts->value('tweetstreamid')}->{package_generation_start_time} = scalar localtime time;
 
 	my $repo = $self->repository;
 	my $db = $repo->database;
@@ -331,6 +333,7 @@ sub export_single_tweetstream
 
 			next unless $tweet;
 
+			$self->{log_data}->{tweetstreams_exported}->{$tsid}->{package_tweet_count}++; 
 			$self->append_tweet_to_file($tweet);
 
 		}
@@ -352,6 +355,8 @@ sub export_single_tweetstream
 
 	create_zip($self->{tmp_dir}, "tweetstream$tsid", $final_filepath );
 
+	$self->{log_data}->{tweetstreams_exported}->{$ts->value('tweetstreamid')}->{package_filesize} = -s $final_filepath;
+	$self->{log_data}->{tweetstreams_exported}->{$ts->value('tweetstreamid')}->{package_generation_end_time} = scalar localtime time;
 	$self->output_status('Done generating package');
 }
 
@@ -379,10 +384,22 @@ sub generate_log_string
 	push @r, '';
         push @r, "Export started at:        " . $l->{start_time};
 	push @r, '';
+	if ($self->{log_data}->{tweetstreams_exported} && scalar keys %{$self->{log_data}->{tweetstreams_exported}})
+	{
+		foreach my $tsid (keys %{$self->{log_data}->{tweetstreams_exported}})
+		{
+			my $ts_log = $self->{log_data}->{tweetstreams_exported}->{$tsid};
+			push @r, "$tsid: " . $ts_log->{package_generation_start_time} . ' to ' . $ts_log->{package_generation_end_time} . ". Filesize: " . $ts_log->{package_filesize};
+		}
+	}
+	else
+	{
+		push @r, 'No Tweetstream Packages Generated';
+	}
+	push @r, '';
 	push @r, "Export finished at:       " . $l->{end_time};
 	push @r, '';
 	push @r, '===========================================================================';
-
 
 	return join("\n", @r);
 }

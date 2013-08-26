@@ -23,58 +23,65 @@
         <file>
           <filename>citations/tweetstream/summary_page.xml</filename>
           <mime_type>inode/symlink</mime_type>
-          <hash>1b1a2e273a31cb503c98d498f7b8ac5f</hash>
+          <hash>74157ed6922a8bb6ed4b9331ecc3a60b</hash>
           <hash_type>MD5</hash_type>
-          <filesize>1890</filesize>
+          <filesize>3277</filesize>
+        </file>
+        <file>
+          <filename>epm/tweepository/bin/tweepository/deactivate_and_retire_tweetstreams.pl</filename>
+          <mime_type>text/x-perl</mime_type>
+          <hash>c82ad606ba7d5479e3a47ffb2d3d177d</hash>
+          <hash_type>MD5</hash_type>
+          <filesize>704</filesize>
         </file>
         <file>
           <filename>epm/tweepository/bin/tweepository/export_tweetstream_packages.pl</filename>
           <mime_type>text/x-perl</mime_type>
-          <hash>a34584fe455e72dfa429b99b814dc5b1</hash>
+          <hash>5557c7b6f6f68e196f23262c84cbd69f</hash>
           <hash_type>MD5</hash_type>
-          <filesize>541</filesize>
+          <filesize>720</filesize>
         </file>
         <file>
           <filename>epm/tweepository/bin/tweepository/import_tweetstream_packages.pl</filename>
           <mime_type>text/x-perl</mime_type>
-          <hash>cbb7945b8e965f127612a2007fd43f5b</hash>
+          <hash>a2ecdac17fe0d8e886450bd71f4a2dcc</hash>
           <hash_type>MD5</hash_type>
-          <filesize>6279</filesize>
+          <filesize>6441</filesize>
         </file>
         <file>
-          <filename>epm/tweepository/bin/tweepository/reenrich_all_tweets.pl</filename>
+          <filename>epm/tweepository/bin/tweepository/recount_tweetstreams.pl</filename>
           <mime_type>text/x-perl</mime_type>
-          <hash>d01f85517e181691da88580b88a78657</hash>
+          <hash>71733ee77c0c85c7bb7e1d75fec6347e</hash>
           <hash_type>MD5</hash_type>
-          <filesize>990</filesize>
+          <filesize>581</filesize>
         </file>
         <file>
           <filename>epm/tweepository/bin/tweepository/update_tweetstream_abstracts.pl</filename>
           <mime_type>text/x-perl</mime_type>
-          <hash>c6b35bf76c020d2086e3edcfc9fedb0c</hash>
+          <hash>fca5eeeb1103570e2fbbb282b94da553</hash>
           <hash_type>MD5</hash_type>
-          <filesize>760</filesize>
+          <filesize>1028</filesize>
         </file>
         <file>
           <filename>epm/tweepository/bin/tweepository/update_tweetstreams.pl</filename>
           <mime_type>text/x-perl</mime_type>
-          <hash>a9d75d0dbe7578ac01de04b116bd0fd0</hash>
+          <hash>f23fd24f4354a0f85c4c02c80f37f4a7</hash>
           <hash_type>MD5</hash_type>
-          <filesize>380</filesize>
+          <filesize>582</filesize>
         </file>
         <file>
           <filename>epm/tweepository/cfg/cfg.d/z_tweepository_cfg.pl</filename>
           <mime_type>text/plain</mime_type>
-          <hash>eaf40c70f79fb43210a8cda5f6868b72</hash>
+          <hash>43b3da2404dceac3ecc54779df4ba415</hash>
           <hash_type>MD5</hash_type>
-          <filesize>3067</filesize>
+          <filesize>3367</filesize>
         </file>
         <file>
           <filename>epm/tweepository/cfg/cfg.d/z_tweepository_libs.pl</filename>
           <mime_type>text/plain</mime_type>
-          <hash>cebdd7cf25aa20998dd39b40707f7696</hash>
+          <hash>0d9cebedf489889c6f22271a0b5e921b</hash>
           <hash_type>MD5</hash_type>
-          <filesize>42943</filesize>
+          <filesize>50850</filesize>
         </file>
         <file>
           <filename>epm/tweepository/cgi/tweepository/latest_tool</filename>
@@ -93,37 +100,58 @@
         <file>
           <filename>lang/en/phrases/twitter.xml</filename>
           <mime_type>inode/symlink</mime_type>
-          <hash>aeff2f080f229db40de81021be22bc43</hash>
+          <hash>f501898cefcc31d03b63f2f5586a8106</hash>
           <hash_type>MD5</hash_type>
-          <filesize>12315</filesize>
+          <filesize>14176</filesize>
+        </file>
+        <file>
+          <filename>plugins/EPrints/Plugin/Event/ArchiveTweetStreams.pm</filename>
+          <mime_type>inode/symlink</mime_type>
+          <hash>70b9d45ac9fdf2daa80e4f13fd2791d2</hash>
+          <hash_type>MD5</hash_type>
+          <filesize>7841</filesize>
+        </file>
+        <file>
+          <filename>plugins/EPrints/Plugin/Event/DeactivateTweetStreams.pm</filename>
+          <mime_type>inode/symlink</mime_type>
+          <hash>28d5ab93096d23c1ce3aa7943fb7a856</hash>
+          <hash_type>MD5</hash_type>
+          <filesize>2455</filesize>
         </file>
         <file>
           <filename>plugins/EPrints/Plugin/Event/ExportTweetStreamPackage.pm</filename>
           <mime_type>inode/symlink</mime_type>
-          <hash>f7ae219d0b39bf33847d99c1edcda52e</hash>
+          <hash>e2de23058545735572d0ddfcf6afc589</hash>
           <hash_type>MD5</hash_type>
-          <filesize>7830</filesize>
+          <filesize>9617</filesize>
         </file>
         <file>
           <filename>plugins/EPrints/Plugin/Event/LockingEvent.pm</filename>
           <mime_type>inode/symlink</mime_type>
-          <hash>873ef57074b5821eb82c09f26ef22eff</hash>
+          <hash>5a97ab3ac21fd31f81aa7271348ab6ef</hash>
           <hash_type>MD5</hash_type>
-          <filesize>2394</filesize>
+          <filesize>4263</filesize>
+        </file>
+        <file>
+          <filename>plugins/EPrints/Plugin/Event/RecountTweetStreams.pm</filename>
+          <mime_type>inode/symlink</mime_type>
+          <hash>ddd57ca9ce931f5343b7e98566b03880</hash>
+          <hash_type>MD5</hash_type>
+          <filesize>1557</filesize>
         </file>
         <file>
           <filename>plugins/EPrints/Plugin/Event/UpdateTweetStreamAbstracts.pm</filename>
           <mime_type>inode/symlink</mime_type>
-          <hash>beeaa95eb5084dec1f76185ddebfd3fc</hash>
+          <hash>4fb573025f354a4c7333516eaa69dba8</hash>
           <hash_type>MD5</hash_type>
-          <filesize>21087</filesize>
+          <filesize>16830</filesize>
         </file>
         <file>
           <filename>plugins/EPrints/Plugin/Event/UpdateTweetStreams.pm</filename>
           <mime_type>inode/symlink</mime_type>
-          <hash>af9ae7177cf504601f2009fde48fa2f6</hash>
+          <hash>ba38e8c8f3ebcf203c7a5652d3a48045</hash>
           <hash_type>MD5</hash_type>
-          <filesize>10431</filesize>
+          <filesize>12012</filesize>
         </file>
         <file>
           <filename>plugins/EPrints/Plugin/Export/TweetStream/CSV.pm</filename>
@@ -170,9 +198,9 @@
         <file>
           <filename>plugins/EPrints/Plugin/Screen/RequestTweetStreamExport.pm</filename>
           <mime_type>inode/symlink</mime_type>
-          <hash>89809a2cdf5d15fbd688c44978266c4b</hash>
+          <hash>3fcba1d67105a41595daecfe6c9f4841</hash>
           <hash_type>MD5</hash_type>
-          <filesize>4867</filesize>
+          <filesize>6100</filesize>
         </file>
         <file>
           <filename>plugins/EPrints/Plugin/Screen/TweetStreamSearch.pm</filename>
@@ -219,9 +247,9 @@
         <file>
           <filename>workflows/tweetstream/default.xml</filename>
           <mime_type>inode/symlink</mime_type>
-          <hash>ac807f9b81dd8047ad32ce6ddc7b86ea</hash>
+          <hash>6b4a54999ed03c984ccff81f0d5f2f2a</hash>
           <hash_type>MD5</hash_type>
-          <filesize>581</filesize>
+          <filesize>843</filesize>
         </file>
       </files>
       <mime_type>inode/symlink</mime_type>
@@ -244,7 +272,7 @@
       <content>coverimage</content>
     </document>
   </documents>
-  <version>0.7.1</version>
+  <version>1.0</version>
   <controller>EPMC::tweepository</controller>
   <creators>
     <item>
@@ -257,7 +285,13 @@
   </creators>
   <datestamp>2013-06-12 16:46:22</datestamp>
   <title>Tweepository</title>
-  <description>Create searches that will be run on twitter, with the results being stored in the repository inside &apos;tweetstream&apos; objects.   The tweetstreams have summary pages, which show an overview of the collected tweets.  Tweetstreams can also be exported as HTML, CSV or JSON.   IMPORTANT (0.5 upgrade): ***If upgrading*** -- you may need to update your crontab -- see the documentation. NOTE(0.6 upgrade): URL handling is now better.  You should run the reenrich_all_tweets.pl script to sort out URLs in previously harvested tweets (note that this may not be a good idea if you have millions of tweets to reprocess).</description>
+  <description>Create searches that will be run on twitter, with the results being stored in the repository inside &apos;tweetstream&apos; objects.   The tweetstreams have summary pages, which show an overview of the collected tweets.  Tweetstreams can also be exported as HTML, CSV or JSON.
+
+**IMPORTANT (0.5 upgrade): ***If upgrading*** -- you may need to update your crontab -- see the documentation. 
+
+**NOTE(0.6 upgrade): URL handling is now better.  You should run the reenrich_all_tweets.pl script to sort out URLs in previously harvested tweets (note that this may not be a good idea if you have millions of tweets to reprocess).  
+
+**Note (1.0 upgrade)  There is now a new bin script that needs to be added to the crontab (deactivate_and_retire_tweetstreams.pl).  You will also need to run recount_tweetstreams.pl and you might want to run update_tweetstream_abstracts with the --update_from_zero and the --recommit_tweets flags.</description>
   <requirements>Perl Modules:
 
 Archive::Zip

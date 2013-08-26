@@ -17,6 +17,8 @@ sub action_deactivate_tweetstreams
 
 	$self->{verbose} = 1 if $opts{verbose};
 
+	$self->{log_data}->{start_time} = scalar localtime time;
+
 	if ($self->is_locked)
 	{
 		$self->repository->log( (ref $self) . " is locked.  Unable to run.\n");
@@ -41,11 +43,15 @@ sub action_deactivate_tweetstreams
 		$ts->commit;
 		$self->output_status("Setting $ts_id to inactive");
 
+		push @{$self->{log_data}->{tweetstreams_deactivated}}, $ts_id;
+
 		#remove package, if it exists -- this will be regenerated as the tweetstream is archived
 		$ts->delete_export_package;
 	}
 
+	$self->{log_data}->{end_time} = scalar localtime time;
 	$self->output_status("done");
+	$self->write_log;
 	$self->remove_lock;
 }
 
@@ -71,6 +77,21 @@ sub expired_tweetstreamids
         return $results->ids; 
 }
 
+sub generate_log_string
+{
+	my ($self) = @_;
 
+	my $r = $self->{log_data}->{start_time} . ' to ' . $self->{log_data}->{end_time} . ': ';
+
+	if ($self->{log_data}->{tweetstreams_deactivated} and scalar @{$self->{log_data}->{tweetstreams_deactivated}})
+	{
+		$r .= 'deactivated: ' . join(',',$self->{log_data}->{tweetstreams_deactivated});
+	}
+	else
+	{
+		$r .= 'nothing deactivated';
+	}
+	return $r . "\n";
+}
 
 1;

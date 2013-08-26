@@ -44,8 +44,7 @@ sub action_archive_tweetstreams
 	{
 
 		#don't do this tweetstream if it's small and we only archive large ones.
-		#would be more efficient to do this in the above search...
-		if ($repo->config('only_archive_large_tweetstreams'))
+		if ($repo->config('tweepository_only_archive_large_tweetstreams'))
 		{
 			my $tweet_count = $ts->value('tweet_count');
 			if ($tweet_count <= $repo->config('tweepository_export_threshold'))
@@ -116,12 +115,16 @@ sub verify_package
 {
 	my ($self, $ts) = @_;
 	my $repo = $self->repository;
+	my $tsid = $ts->value('tweetstreamid');
 
 	#get path to package
 	my $filename = $ts->export_package_filepath;
 
+	$self->{log_data}->{packages_validated}->{$tsid}->{validate_start_time} = scalar localtime time;
 	if (!-e $filename)
 	{
+		$self->{log_data}->{packages_validated}->{$tsid}->{end_state} = 'package missing';
+		$self->{log_data}->{packages_validated}->{$tsid}->{validate_end_time} = scalar localtime time;
 		$repo->log("export file $filename doesn't exist");
 		return 0;
 	}
@@ -191,9 +194,15 @@ sub verify_package
 
 	if ($tweet_count != $updated_tweet_count)
 	{
+		$self->{log_data}->{packages_validated}->{$tsid}->{end_state} = 'package invalid (count mismatch)';
+		$self->{log_data}->{packages_validated}->{$tsid}->{validate_end_time} = scalar localtime time;
+		
 		$repo->log("Tweetstream " . $ts->value('tweetstreamid') . " package $filename contains $tweet_count tweets, but the dataobj contains $updated_tweet_count");
 		return 0;
 	}
+	
+	$self->{log_data}->{packages_validated}->{$tsid}->{end_state} = 'Export Successful';
+	$self->{log_data}->{packages_validated}->{$tsid}->{validate_end_time} = scalar localtime time;
 
 	return 1;
 }
@@ -206,13 +215,35 @@ sub generate_log_string
 
 	my @r;
 
-	push @r, '===========================================================================';
-	push @r, '';
+        push @r, '===========================================================================';
+        push @r, '';
         push @r, "Export started at:        " . $l->{start_time};
-	push @r, '';
-	push @r, "Export finished at:       " . $l->{end_time};
-	push @r, '';
-	push @r, '===========================================================================';
+        push @r, '';
+        if ($self->{log_data}->{tweetstreams_exported} && scalar keys %{$self->{log_data}->{tweetstreams_exported}})
+        {
+                foreach my $tsid (keys %{$self->{log_data}->{tweetstreams_exported}})
+                {
+                        my $ts_log = $self->{log_data}->{tweetstreams_exported}->{$tsid};
+                        push @r, "$tsid: " . $ts_log->{package_generation_start_time} . ' to ' . $ts_log->{package_generation_end_time} . ". Filesize: " . $ts_log->{package_filesize};
+			if ($self->{log_data}->{packages_validated}->{$tsid})
+			{
+				push @r, "\tValidation: "
+					. $self->{log_data}->{packages_validated}->{$tsid}->{validate_start_time} 
+					. ' to '
+					. $self->{log_data}->{packages_validated}->{$tsid}->{validate_end_time}
+					. ' --> '
+					. $self->{log_data}->{packages_validated}->{$tsid}->{end_state};
+			}
+                }
+        }
+        else
+        {
+                push @r, 'No Tweetstream Packages Generated';
+        }
+        push @r, '';
+        push @r, "Export finished at:       " . $l->{end_time};
+        push @r, '';
+        push @r, '===========================================================================';
 
 
 	return join("\n", @r);

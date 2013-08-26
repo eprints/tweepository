@@ -19,6 +19,13 @@ sub new
         return $self;
 }
 
+sub set_verbose
+{
+	my ($self, $verbose) = @_;
+
+	$self->{verbose} = $verbose;
+}
+
 sub blocked_by
 {
 	my ($self) = @_;
