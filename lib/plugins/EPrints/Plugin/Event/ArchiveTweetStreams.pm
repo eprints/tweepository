@@ -47,7 +47,14 @@ sub action_archive_tweetstreams
 		if ($repo->config('tweepository_only_archive_large_tweetstreams'))
 		{
 			my $tweet_count = $ts->value('tweet_count');
-			if ($tweet_count <= $repo->config('tweepository_export_threshold'))
+			#just in case
+			if (!defined $tweet_count)
+			{
+				$tweet_count = $ts->count_with_query;
+			}
+
+			if (
+				$tweet_count <= $repo->config('tweepository_export_threshold'))
 			{
 				#generate final package if needed (note that the process that makes it inactive removes the package), but don't erase from database
 				if (!-e $ts->export_package_filepath)
@@ -184,9 +191,9 @@ sub verify_package
 	$self->wait;
 	#check that there out count from the package matches the count from the database (refresh by query if necessary).
 	my $updated_tweet_count = $ts->count_with_query;
-	if ($updated_tweet_count != $tweet_count)
+	if ($updated_tweet_count != $ts->value('tweet_count'))
 	{
-		$ts->set_value($updated_tweet_count);
+		$ts->set_value('tweet_count', $updated_tweet_count);
 		$ts->commit;
 	}
 

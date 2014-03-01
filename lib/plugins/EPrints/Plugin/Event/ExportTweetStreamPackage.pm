@@ -212,6 +212,7 @@ sub close_file
 	my ($self, $type) = @_;
 
 	my $fh = $self->{files}->{$type}->{filehandle};
+	return unless $fh;
 
 	if ($type eq 'json')
 	{

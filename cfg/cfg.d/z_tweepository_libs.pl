@@ -1515,6 +1515,7 @@ sub commit
 	$self->update_triggers();
 
 	$self->set_value('status', 'active') if !$self->is_set('status');
+	$self->set_value('tweet_count', 0) if !$self->is_set('tweet_count');
 
 	if (!$self->is_set('title') && $self->is_set('search_string'))
 	{
@@ -1576,10 +1577,13 @@ sub count_with_query
 	my $repo = $self->repository;
 	my $db = $repo->database;
 
-	my $sql = 'SELECT COUNT(*) FROM tweet_tweetstreams WHERE tweetstreams = ' . $self->value('tweetstreamid');
+	my $sql = 'SELECT COUNT(*) ';
+	$sql .=   'FROM tweet JOIN tweet_tweetstreams ON tweet.tweetid = tweet_tweetstreams.tweetid ';
+	$sql .=   'WHERE tweet_tweetstreams.tweetstreams = ' . $self->value('tweetstreamid');
+
 	if ($highest_tweetid)
 	{
-		$sql .= " AND tweetid <= $highest_tweetid";
+		$sql .= " AND tweet.tweetid <= $highest_tweetid";
 	}
 
         my $sth = $db->prepare( $sql );

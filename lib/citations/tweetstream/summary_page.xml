@@ -76,7 +76,7 @@
 </epc:if>
 </epc:if>
 
-<epc:if test="status = 'actived'">
+<epc:if test="status = 'archived'">
 <p>Harvesting of this TweetStream has now finished and the results have been removed from the database and stored in a package.  The package should be available for download (unless it is currently being generated).</p>
 <p>Due to this, some abstract page functionality has been disabled.</p>
 
