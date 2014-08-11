@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<workflow xmlns="http://eprints.org/ep3/workflow" xmlns:epc="http://eprints.org/ep3/control">
+
+  <flow>
+    <stage ref="default"/>
+  </flow>
+   
+  <stage name="default">
+
+<epc:if test="!status">
+    <component type="Field::Multi">
+	<title>Parameters</title>
+        <epc:if test="!tweet_count">
+	  <field ref="search_string" required="yes" />
+	  <field ref="geocode" />
+        </epc:if>
+	<field ref="expiry_date" required="yes" />
+    </component>
+</epc:if>
+<epc:if test="status = 'active'">
+    <component type="Field::Multi">
+	<title>Parameters</title>
+        <epc:if test="!tweet_count">
+	  <field ref="search_string" required="yes" />
+	  <field ref="geocode" />
+        </epc:if>
+	<field ref="expiry_date" required="yes" />
+    </component>
+</epc:if>
+
+    <component type="Field::Multi">
+	<title>Metadata</title>
+	<field ref="title" />
+	<field ref="project_title" />
+	<field ref="abstract" />
+    </component>
+
+  </stage>
+</workflow>

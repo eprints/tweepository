@@ -1,0 +1,126 @@
+<?xml version="1.0" ?>
+
+<cite:citation xmlns="http://www.w3.org/1999/xhtml" xmlns:cite="http://eprints.org/ep3/citation" xmlns:epc="http://eprints.org/ep3/control">
+
+<epc:if test="status != 'archived'">
+
+
+<epc:if test="is_set(oldest_tweets)">
+<!--if the field is set then we've generated the abstract at least once -->
+
+<div class='tweetstream_summary'>
+<table> 
+<tr valign = 'top'>
+<td>
+    <h2>Tweets</h2>
+    <p>Below, in chronological order are a few of the tweets in the stream.</p>
+    <div style="margin-left: 3em">
+      <epc:print expr="rendered_tweetlist"/> 
+    </div>
+</td>
+<td valign = 'top' style = 'padding-left: 1em'>
+    <h2>Export</h2>
+	<epc:print expr="exports"/>
+    <h2>Tools</h2>
+	<epc:print expr="tools"/>
+    <h2>Top Tweeters</h2>
+    <div style="margin-left: 3em">
+      <epc:print expr="top_from_users"/>
+    </div>
+
+    <h2>Top Hashtags</h2>
+    <div style="margin-left: 3em">
+      <epc:print expr="top_hashtags"/>
+    </div>
+
+    <h2>Top Retweeted</h2>
+    <div style="margin-left: 3em">
+      <epc:print expr="top_retweeted"/>
+    </div>
+
+    <h2>Top Replied To</h2>
+    <div style="margin-left: 3em">
+      <epc:print expr="top_reply_tos"/>
+    </div>
+
+    <h2>Top Mentions</h2>
+    <div style="margin-left: 3em">
+      <epc:print expr="top_tweetees"/>
+    </div>
+
+    <h2>Top Links</h2>
+    <div style="margin-left: 3em">
+      <epc:print expr="top_urls_from_text"/>
+    </div>
+
+    <h2>Tweet Frequency</h2>
+    <div style="margin-left: 3em">
+      <epc:print expr="frequency_values"/>
+    </div>
+
+</td>
+</tr>
+</table>
+</div>
+</epc:if>
+<epc:if test="!is_set(oldest_tweets)">
+<h2>Nothing To See Here</h2>
+<p>This page is generated periodically (probably nightly).  If there is nothing here, there are a number of reasons why this might be:
+<ul>
+<li>The feed may be very new.  If so, please check back tomorrow.</li>
+<li>The feed may not be returning any results.  Please check the search term by typing it into twitter's search and seeing if anything is returned</li>
+<li>There may be a problem with the system.  If you've tried both of the above, please contact an administrator</li>
+</ul>
+</p>
+
+</epc:if>
+</epc:if>
+
+<epc:if test="status = 'archived'">
+<p>Harvesting of this TweetStream has now finished and the results have been removed from the database and stored in a package.  The package should be available for download (unless it is currently being generated).</p>
+<p>Due to this, some abstract page functionality has been disabled.</p>
+
+<div class='tweetstream_summary'>
+<table> 
+<tr valign = 'top'>
+<td>
+
+    <h2>Tools</h2>
+	<epc:print expr="tools"/>
+    <h2>Top Tweeters</h2>
+    <div style="margin-left: 3em">
+      <epc:print expr="top_from_users"/>
+    </div>
+
+    <h2>Top Hashtags</h2>
+    <div style="margin-left: 3em">
+      <epc:print expr="top_hashtags"/>
+    </div>
+
+    <h2>Top Mentions</h2>
+    <div style="margin-left: 3em">
+      <epc:print expr="top_tweetees"/>
+    </div>
+
+</td>
+<td valign = 'top' style = 'padding-left: 1em'>
+
+    <h2>Top Links</h2>
+    <div style="margin-left: 3em">
+      <epc:print expr="top_urls_from_text"/>
+    </div>
+
+    <h2>Tweet Frequency</h2>
+    <div style="margin-left: 3em">
+      <epc:print expr="frequency_values"/>
+    </div>
+
+</td>
+</tr>
+</table>
+</div>
+
+
+</epc:if>
+
+</cite:citation>
