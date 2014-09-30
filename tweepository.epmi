@@ -8,21 +8,21 @@
       <files>
         <file>
           <filename>citations/tweet/default.xml</filename>
-          <mime_type>application/xml</mime_type>
+          <mime_type>inode/symlink</mime_type>
           <hash>3433725c0cce49f4e2d6da3e634313c7</hash>
           <hash_type>MD5</hash_type>
           <filesize>280</filesize>
         </file>
         <file>
           <filename>citations/tweetstream/default.xml</filename>
-          <mime_type>application/xml</mime_type>
+          <mime_type>inode/symlink</mime_type>
           <hash>d3025678bf720c39964ba121a7c60583</hash>
           <hash_type>MD5</hash_type>
           <filesize>282</filesize>
         </file>
         <file>
           <filename>citations/tweetstream/summary_page.xml</filename>
-          <mime_type>application/xml</mime_type>
+          <mime_type>inode/symlink</mime_type>
           <hash>9b6bce4a87e4b61bdcd808cc946c8ae8</hash>
           <hash_type>MD5</hash_type>
           <filesize>3278</filesize>
@@ -79,9 +79,9 @@
         <file>
           <filename>epm/tweepository/cfg/cfg.d/z_tweepository_libs.pl</filename>
           <mime_type>text/plain</mime_type>
-          <hash>30c52e29d8982d1025b7e03ee7873e6c</hash>
+          <hash>c62e7ac2c6e5681e77bc11531ed3bfcd</hash>
           <hash_type>MD5</hash_type>
-          <filesize>50956</filesize>
+          <filesize>51237</filesize>
         </file>
         <file>
           <filename>epm/tweepository/cgi/tweepository/latest_tool</filename>
@@ -99,160 +99,160 @@
         </file>
         <file>
           <filename>lang/en/phrases/twitter.xml</filename>
-          <mime_type>application/xml</mime_type>
+          <mime_type>inode/symlink</mime_type>
           <hash>f501898cefcc31d03b63f2f5586a8106</hash>
           <hash_type>MD5</hash_type>
           <filesize>14176</filesize>
         </file>
         <file>
           <filename>plugins/EPrints/Plugin/Event/ArchiveTweetStreams.pm</filename>
-          <mime_type>text/plain</mime_type>
-          <hash>fae6d8e38d5076c9edb05eecce24460b</hash>
+          <mime_type>inode/symlink</mime_type>
+          <hash>610adbe4900fe2ac651682f437e76282</hash>
           <hash_type>MD5</hash_type>
-          <filesize>7946</filesize>
+          <filesize>9465</filesize>
         </file>
         <file>
           <filename>plugins/EPrints/Plugin/Event/DeactivateTweetStreams.pm</filename>
-          <mime_type>text/plain</mime_type>
+          <mime_type>inode/symlink</mime_type>
           <hash>28d5ab93096d23c1ce3aa7943fb7a856</hash>
           <hash_type>MD5</hash_type>
           <filesize>2455</filesize>
         </file>
         <file>
           <filename>plugins/EPrints/Plugin/Event/ExportTweetStreamPackage.pm</filename>
-          <mime_type>text/plain</mime_type>
-          <hash>e42de9132258129e549f066303b501b5</hash>
+          <mime_type>inode/symlink</mime_type>
+          <hash>013b0685b71833f0743629156da8e0c4</hash>
           <hash_type>MD5</hash_type>
-          <filesize>9637</filesize>
+          <filesize>10570</filesize>
         </file>
         <file>
           <filename>plugins/EPrints/Plugin/Event/LockingEvent.pm</filename>
-          <mime_type>text/plain</mime_type>
-          <hash>5a97ab3ac21fd31f81aa7271348ab6ef</hash>
+          <mime_type>inode/symlink</mime_type>
+          <hash>3dfe90862899a1e2559ae4c60b11eac0</hash>
           <hash_type>MD5</hash_type>
-          <filesize>4263</filesize>
+          <filesize>6827</filesize>
         </file>
         <file>
           <filename>plugins/EPrints/Plugin/Event/RecountTweetStreams.pm</filename>
-          <mime_type>text/plain</mime_type>
+          <mime_type>inode/symlink</mime_type>
           <hash>ddd57ca9ce931f5343b7e98566b03880</hash>
           <hash_type>MD5</hash_type>
           <filesize>1557</filesize>
         </file>
         <file>
           <filename>plugins/EPrints/Plugin/Event/UpdateTweetStreamAbstracts.pm</filename>
-          <mime_type>text/plain</mime_type>
+          <mime_type>inode/symlink</mime_type>
           <hash>4fb573025f354a4c7333516eaa69dba8</hash>
           <hash_type>MD5</hash_type>
           <filesize>16830</filesize>
         </file>
         <file>
           <filename>plugins/EPrints/Plugin/Event/UpdateTweetStreams.pm</filename>
-          <mime_type>text/plain</mime_type>
-          <hash>a4090e1ba556e25260f80467103316cb</hash>
+          <mime_type>inode/symlink</mime_type>
+          <hash>6eaa17975197184b4a2586961a41ded7</hash>
           <hash_type>MD5</hash_type>
-          <filesize>12022</filesize>
+          <filesize>13796</filesize>
         </file>
         <file>
           <filename>plugins/EPrints/Plugin/Export/TweetStream/CSV.pm</filename>
-          <mime_type>text/plain</mime_type>
+          <mime_type>inode/symlink</mime_type>
           <hash>0b3eef13dd80c4937f0c9c6791ae4b5d</hash>
           <hash_type>MD5</hash_type>
           <filesize>2928</filesize>
         </file>
         <file>
           <filename>plugins/EPrints/Plugin/Export/TweetStream/GraphML.pm</filename>
-          <mime_type>text/plain</mime_type>
+          <mime_type>inode/symlink</mime_type>
           <hash>20ff2fe6f63b437a415e6965fc5a94c0</hash>
           <hash_type>MD5</hash_type>
           <filesize>8581</filesize>
         </file>
         <file>
           <filename>plugins/EPrints/Plugin/Export/TweetStream/HTML.pm</filename>
-          <mime_type>text/plain</mime_type>
+          <mime_type>inode/symlink</mime_type>
           <hash>504bbb121a5526bc389c3e4680feae01</hash>
           <hash_type>MD5</hash_type>
           <filesize>1842</filesize>
         </file>
         <file>
           <filename>plugins/EPrints/Plugin/Export/TweetStream/JSON.pm</filename>
-          <mime_type>text/plain</mime_type>
+          <mime_type>inode/symlink</mime_type>
           <hash>7fbd2eaf8bc84f156073700ff0324c02</hash>
           <hash_type>MD5</hash_type>
           <filesize>2781</filesize>
         </file>
         <file>
           <filename>plugins/EPrints/Plugin/Screen/EPMC/tweepository.pm</filename>
-          <mime_type>text/plain</mime_type>
+          <mime_type>inode/symlink</mime_type>
           <hash>1163f2cbf408e5a989b73542ef987f32</hash>
           <hash_type>MD5</hash_type>
           <filesize>2704</filesize>
         </file>
         <file>
           <filename>plugins/EPrints/Plugin/Screen/ManageTweetstreamsLink.pm</filename>
-          <mime_type>text/plain</mime_type>
+          <mime_type>inode/symlink</mime_type>
           <hash>768308f749341e271cc7e16eacafdbb5</hash>
           <hash_type>MD5</hash_type>
           <filesize>632</filesize>
         </file>
         <file>
           <filename>plugins/EPrints/Plugin/Screen/RequestTweetStreamExport.pm</filename>
-          <mime_type>text/plain</mime_type>
-          <hash>3fcba1d67105a41595daecfe6c9f4841</hash>
+          <mime_type>inode/symlink</mime_type>
+          <hash>1d45f0377d58cb39daa07f06ad562a05</hash>
           <hash_type>MD5</hash_type>
-          <filesize>6100</filesize>
+          <filesize>6176</filesize>
         </file>
         <file>
           <filename>plugins/EPrints/Plugin/Screen/TweetStreamSearch.pm</filename>
-          <mime_type>text/plain</mime_type>
+          <mime_type>inode/symlink</mime_type>
           <hash>e47274cc19b513be66f0a4aa47eaa636</hash>
           <hash_type>MD5</hash_type>
           <filesize>828</filesize>
         </file>
         <file>
           <filename>static/images/epm/tweepository.png</filename>
-          <mime_type>image/png</mime_type>
+          <mime_type>inode/symlink</mime_type>
           <hash>95f5a53cfb28205a4e5ed0715ecbd89a</hash>
           <hash_type>MD5</hash_type>
           <filesize>111382</filesize>
         </file>
         <file>
           <filename>static/images/tweepository/paper_tear-bottom.png</filename>
-          <mime_type>image/png</mime_type>
+          <mime_type>inode/symlink</mime_type>
           <hash>9e880272676bc24b79718155af83be84</hash>
           <hash_type>MD5</hash_type>
           <filesize>31808</filesize>
         </file>
         <file>
           <filename>static/images/tweepository/paper_tear-top.png</filename>
-          <mime_type>image/png</mime_type>
+          <mime_type>inode/symlink</mime_type>
           <hash>72c56c188603a6d050d74b09dc8c2b4d</hash>
           <hash_type>MD5</hash_type>
           <filesize>32594</filesize>
         </file>
         <file>
           <filename>static/style/auto/twitter.css</filename>
-          <mime_type>text/plain</mime_type>
+          <mime_type>inode/symlink</mime_type>
           <hash>1a377195f7aef71694481d0a9d691c74</hash>
           <hash_type>MD5</hash_type>
           <filesize>1657</filesize>
         </file>
         <file>
           <filename>static/style/images/tweetstream_package.png</filename>
-          <mime_type>image/png</mime_type>
+          <mime_type>inode/symlink</mime_type>
           <hash>c1ceee2cdbde616472f9f7e373879440</hash>
           <hash_type>MD5</hash_type>
           <filesize>1403</filesize>
         </file>
         <file>
           <filename>workflows/tweetstream/default.xml</filename>
-          <mime_type>application/xml</mime_type>
+          <mime_type>inode/symlink</mime_type>
           <hash>5a3e5156e11aa6866f1ca553f9e7ac05</hash>
           <hash_type>MD5</hash_type>
           <filesize>980</filesize>
         </file>
       </files>
-      <mime_type>application/xml</mime_type>
+      <mime_type>inode/symlink</mime_type>
       <format>other</format>
       <main>workflows/tweetstream/default.xml</main>
       <content>install</content>
@@ -261,7 +261,7 @@
       <files>
         <file>
           <filename>static/images/epm/tweepository.png</filename>
-          <mime_type>image/png</mime_type>
+          <mime_type>inode/symlink</mime_type>
           <hash>95f5a53cfb28205a4e5ed0715ecbd89a</hash>
           <hash_type>MD5</hash_type>
           <filesize>111382</filesize>
@@ -272,7 +272,7 @@
       <content>coverimage</content>
     </document>
   </documents>
-  <version>1.1.7</version>
+  <version>1.2.0</version>
   <controller>EPMC::tweepository</controller>
   <creators>
     <item>

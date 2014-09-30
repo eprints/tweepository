@@ -12,6 +12,7 @@ use Encode qw(encode);
 use Net::Twitter::Lite::WithAPIv1_1;
 
 my $HTTP_RETRIES = 5; #for network errors
+my $TWITTER_TIMEOUT = 30; #timeout on twitter API
 my $QUERY_RETRIES = 5; #for API errors
 my $QUERIES_BEFORE_RATE_CHECK = 100; #because one query may use more than one of the quota if it's complex
 
@@ -115,8 +116,12 @@ sub action_update_tweetstreams
 				$self->refresh_lock; #update datestamp on lock
 $self->output_status('About to search');
 				eval {
+					local $SIG{ALRM} = sub { die "timeout\n" }; #\n required
+					alarm $TWITTER_TIMEOUT; 
 					$results = $nt->search($current_item->{search_params});
+					alarm 0;
 				};
+				alarm 0; #just in case of twitter errors within timeout
 $self->output_status('Search Complete');
 
 				#if we have an error, sleep and then try again, otherwise exit the retry loop.
@@ -141,7 +146,7 @@ $self->output_status('Net::Twitter::Error occurred');
 						}
 					}
 
-					$self->output_status('Uncategorised error, retrying...');
+					$self->output_status('Uncategorised error or twitter timout, retrying...');
 					sleep 10;
 					next RETRY;
 				}
@@ -168,7 +173,7 @@ $self->output_status('Results flag set');
 				}
 				else
 				{
-					$self->output_status('Retrieved ', scalar @{$results->{statuses}}, ' statuses');
+					$self->output_status('Retrieved ', scalar @{$results->{statuses}}, ' statuses (since_id: ) ' . $current_item->{search_params}->{since_id});
 					$self->process_results($current_item, $results);
 
 					$self->output_status('Tweets created');
@@ -396,10 +401,10 @@ sub create_queue_item
 		#set the highest_twitterid for this query to whichever tweetstream has the lowest high_id
 		if (
 			!$event_plugin->{previous_run_incomplete}
-			&& $queue_items->{$key}->{since_id} > $tweetstream->highest_twitterid
+			&& $queue_items->{$key}->{search_params}->{since_id} > $tweetstream->highest_twitterid
 		)
 		{
-			$queue_items->{$key}->{since_id} = $tweetstream->highest_twitterid;
+			$queue_items->{$key}->{search_params}->{since_id} = $tweetstream->highest_twitterid;
 		}
 	}
 	else
@@ -411,6 +416,7 @@ sub create_queue_item
 				count => 100,
 				include_entities => 1,
 	#			max_id => Will be set to the lowest id we find for the purposes of paging
+				since_id => 0, #will be set to a proper value later
 			},
 			tweetstreamids => [ $tweetstream->id ], #for when two streams have identical search strings
 			retries => $QUERY_RETRIES, #if there's a failure, we'll try again.
@@ -419,7 +425,7 @@ sub create_queue_item
 		#get all available results to fill in possible holes if we've previously crashed
 		if (!$event_plugin->{previous_run_incomplete})
 		{
-			$queue_items->{$key}->{since_id} = $tweetstream->highest_twitterid;
+			$queue_items->{$key}->{search_params}->{since_id} = $tweetstream->highest_twitterid;
 		}
 
 		#optional param
