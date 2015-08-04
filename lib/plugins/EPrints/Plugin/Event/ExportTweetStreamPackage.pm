@@ -144,6 +144,8 @@ sub _generate_sql_query
 {
 	my ($self, $order_field, $tsid) = @_;
 
+	$self->output_status("Generating sql (ordering on $order_field)");
+
 	#we don't care about ordering 
 	if ($order_field eq 'tweetid')
 	{

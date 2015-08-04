@@ -70,7 +70,7 @@ sub action_update_tweetstreams
 
 	$self->output_status('Connected to Twitter');
 
-	my $limit = get_search_rate_limit($nt); 
+	my $limit = $self->get_search_rate_limit($nt); 
 
 	$self->output_status("Initial Rate Limit: $limit");
 
@@ -219,7 +219,7 @@ $self->output_status('results flag not set');
 
 		}
 		#update the limit, just in case.
-		$limit = get_search_rate_limit($nt);
+		$limit = $self->get_search_rate_limit($nt);
 		$self->output_status("Updated limit.  It's now $limit");
 	}
 
@@ -459,22 +459,47 @@ sub active_tweetstreams
 
 sub get_search_rate_limit
 {
-	my ($nt) = @_;
+	my ($self, $nt) = @_;
 
 
-	my $rl = $nt->rate_limit_status();
-
-	#walk down the nested hash
-	foreach my $key (qw( resources search /search/tweets remaining ))
-	{
-		if (!exists $rl->{$key})
+	RETRY: foreach my $retry (1..$HTTP_RETRIES)
+        {
+		my $rl;
+		$self->output_status('About to Get rate limit');
+		eval {
+			local $SIG{ALRM} = sub { die "timeout\n" }; #\n required
+				alarm $TWITTER_TIMEOUT; 
+			$rl = $nt->rate_limit_status();
+			alarm 0;
+		};
+		alarm 0; #just in case of twitter errors within timeout
+		if ($@)
 		{
-			$rl = undef;
-			return $rl;
+			$self->output_status('Uncategorised error or twitter timout, retrying...');
+			sleep 10;
+			next RETRY;
 		}
-		$rl = $rl->{$key};
+		else
+		{
+			#no error
+
+			$self->output_status('Got rate limit');
+			#walk down the nested hash
+			foreach my $key (qw( resources search /search/tweets remaining ))
+			{
+				if (!exists $rl->{$key})
+				{
+					$rl = undef;
+					return $rl;
+				}
+				$rl = $rl->{$key};
+			}
+			return $rl;
+
+		}
 	}
-	return $rl;
+	$self->output_status('Unable to get rate limit.  Giving up.');
+	return 0; #something's gone very wrong.  Let's just say we're out of API.
 };
 
 

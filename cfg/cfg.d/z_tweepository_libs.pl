@@ -1178,6 +1178,12 @@ sub render_top_frequency_values
 {
         my( $session , $field , $value , $alllangs , $nolink , $object ) = @_;
 
+	if (!(scalar @{$value}))
+	{
+		return $session->html_phrase('top_field_no_data');
+	}
+
+
 	#first find the highest to scale all others
 	my $highest = 0;
 	foreach (@{$value})
@@ -1218,6 +1224,11 @@ sub get_url
 sub render_top_field
 {
         my( $session , $field , $value , $alllangs , $nolink , $object ) = @_;
+
+	if (!(scalar @{$value}))
+	{
+		return $session->html_phrase('top_field_no_data');
+	}
 
 	my $rows;
 	my $fieldname = $field->name;
@@ -1600,17 +1611,20 @@ sub count_with_query
 }
 
 #returns a page of tweets, or all of them if args not supplied
+#order_field enables the retrieval of tweets by tweetid -- much faster for larger twitter feeds
 sub tweets
 {
-	my ($self, $limit, $lowest_twitterid) = @_;
+	my ($self, $limit, $lowest_id, $order_field) = @_;
+
+	$order_field = 'twitterid' unless $order_field;
 
 	my $ds = $self->repository->dataset('tweet');
 
-	my $search = $ds->prepare_search(custom_order => 'twitterid');
+	my $search = $ds->prepare_search(custom_order => $order_field);
 	$search->add_field($ds->get_field('tweetstreams'), $self->id);
 
 	$search->set_property('limit', $limit) if $limit;
-	$search->add_field($ds->get_field('twitterid'), "$lowest_twitterid-") if $lowest_twitterid;
+	$search->add_field($ds->get_field($order_field), "$lowest_id-") if $lowest_id;
 
 	return $search->perform_search;
 }
@@ -1656,7 +1670,7 @@ sub remove
 	my $page_size = 1000;
 	while (1)
 	{
-		my $tweets = $self->tweets($page_size);
+		my $tweets = $self->tweets($page_size, 0, 'tweetid');
 		last unless $tweets->count; #exit if there are no results returned
 		$tweets->map( sub
 		{
