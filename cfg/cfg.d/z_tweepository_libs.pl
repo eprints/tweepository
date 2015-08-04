@@ -13,6 +13,7 @@ foreach my $pluginid (qw/
 	Screen::EPMC::tweepository
 	Screen::ManageTweetstreamsLink
 	Screen::RequestTweetStreamExport
+	Screen::ExportArchivedPackage
 	Screen::TweetStreamSearch
 /)
 {

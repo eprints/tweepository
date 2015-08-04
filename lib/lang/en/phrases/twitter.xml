@@ -12,6 +12,7 @@
     <epp:phrase id="Plugin/Screen/RequestTweetStreamExport:title">Twitter Packager</epp:phrase>
     <epp:phrase id="Plugin/Screen/RequestTweetStreamExport:queue_export">Generate New Package</epp:phrase>
     <epp:phrase id="Plugin/Screen/RequestTweetStreamExport:export_redir">Download Package</epp:phrase>
+    <epp:phrase id="Plugin/Screen/ExportArchivedPackage:export_redir">Download Package</epp:phrase>
     <epp:phrase id="TweetStream/export_too_many"><p>There are too many tweets in this collection to safely use the default exports.  Please use the package exporter in the tools below.</p></epp:phrase>
     <epp:phrase id="TweetStream/export_arvchived"><p>This collection has been archived.  Please download the package.</p></epp:phrase>
 
@@ -27,12 +28,29 @@
 </p>
  </epp:phrase>
 
+    <epp:phrase id="Plugin/Screen/ExportArchivedPackage:package_exists"><p>A package exists and may be downloaded.
+<table class="tweetstream_file_summary_table">
+<tr><td>Datestamp:</td><td><epc:pin name="datestamp"/></td></tr>
+<tr><td>Filesize:</td><td><epc:pin name="filesize"/></td></tr>
+<tr><td class="download_td" colspan="2"><epc:pin name="downloadbutton"/></td></tr>
+</table>
+</p>
+ </epp:phrase>
+
+
  <epp:phrase id="Plugin/Screen/RequestTweetStreamExport:generate_preamble">
 <p>If you wish a more up-to-date package, please click below to generate one (which may take some time).</p>
  </epp:phrase>
 
  <epp:phrase id="Plugin/Screen/RequestTweetStreamExport:non_active_preamble">
 <p>This collection is no longer being actively harvested.  The package containing JSON and HTML can be downloaded below.</p>
+ </epp:phrase>
+
+ <epp:phrase id="Plugin/Screen/ExportArchivedPackage:title">
+	<epc:phrase ref='Plugin/Screen/RequestTweetStreamExport:title'/>
+ </epp:phrase>
+ <epp:phrase id="Plugin/Screen/ExportArchivedPackage:non_active_preamble">
+	<epc:phrase ref='Plugin/Screen/RequestTweetStreamExport:non_active_preamble'/>
  </epp:phrase>
 
  <epp:phrase id="Plugin/Screen/RequestTweetStreamExport:non_active_absent">

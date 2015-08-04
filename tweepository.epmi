@@ -65,23 +65,23 @@
         <file>
           <filename>epm/tweepository/bin/tweepository/update_tweetstreams.pl</filename>
           <mime_type>text/plain</mime_type>
-          <hash>f23fd24f4354a0f85c4c02c80f37f4a7</hash>
+          <hash>3178735b2301da2736a630af4ca2910c</hash>
           <hash_type>MD5</hash_type>
-          <filesize>582</filesize>
+          <filesize>665</filesize>
         </file>
         <file>
           <filename>epm/tweepository/cfg/cfg.d/z_tweepository_cfg.pl</filename>
           <mime_type>text/plain</mime_type>
-          <hash>43b3da2404dceac3ecc54779df4ba415</hash>
+          <hash>b36ff20839a8829f6ce6d5950c9f8e5f</hash>
           <hash_type>MD5</hash_type>
-          <filesize>3367</filesize>
+          <filesize>3400</filesize>
         </file>
         <file>
           <filename>epm/tweepository/cfg/cfg.d/z_tweepository_libs.pl</filename>
           <mime_type>text/plain</mime_type>
-          <hash>c62e7ac2c6e5681e77bc11531ed3bfcd</hash>
+          <hash>8b6cb61af42e2e7fbd99754a5d061da4</hash>
           <hash_type>MD5</hash_type>
-          <filesize>51237</filesize>
+          <filesize>51596</filesize>
         </file>
         <file>
           <filename>epm/tweepository/cgi/tweepository/latest_tool</filename>
@@ -100,9 +100,9 @@
         <file>
           <filename>lang/en/phrases/twitter.xml</filename>
           <mime_type>inode/symlink</mime_type>
-          <hash>f501898cefcc31d03b63f2f5586a8106</hash>
+          <hash>5613b083428795462bd0e051ce29bde3</hash>
           <hash_type>MD5</hash_type>
-          <filesize>14176</filesize>
+          <filesize>15070</filesize>
         </file>
         <file>
           <filename>plugins/EPrints/Plugin/Event/ArchiveTweetStreams.pm</filename>
@@ -121,9 +121,9 @@
         <file>
           <filename>plugins/EPrints/Plugin/Event/ExportTweetStreamPackage.pm</filename>
           <mime_type>inode/symlink</mime_type>
-          <hash>013b0685b71833f0743629156da8e0c4</hash>
+          <hash>1b77ce7aa0be61123031e034c0a8c578</hash>
           <hash_type>MD5</hash_type>
-          <filesize>10570</filesize>
+          <filesize>10639</filesize>
         </file>
         <file>
           <filename>plugins/EPrints/Plugin/Event/LockingEvent.pm</filename>
@@ -149,9 +149,9 @@
         <file>
           <filename>plugins/EPrints/Plugin/Event/UpdateTweetStreams.pm</filename>
           <mime_type>inode/symlink</mime_type>
-          <hash>6eaa17975197184b4a2586961a41ded7</hash>
+          <hash>235c2a3491e42556c9625f6aea9ce93a</hash>
           <hash_type>MD5</hash_type>
-          <filesize>13796</filesize>
+          <filesize>14866</filesize>
         </file>
         <file>
           <filename>plugins/EPrints/Plugin/Export/TweetStream/CSV.pm</filename>
@@ -187,6 +187,13 @@
           <hash>1163f2cbf408e5a989b73542ef987f32</hash>
           <hash_type>MD5</hash_type>
           <filesize>2704</filesize>
+        </file>
+        <file>
+          <filename>plugins/EPrints/Plugin/Screen/ExportArchivedPackage.pm</filename>
+          <mime_type>inode/symlink</mime_type>
+          <hash>19f7335dcc71d001edada6819a984c84</hash>
+          <hash_type>MD5</hash_type>
+          <filesize>797</filesize>
         </file>
         <file>
           <filename>plugins/EPrints/Plugin/Screen/ManageTweetstreamsLink.pm</filename>
@@ -272,7 +279,7 @@
       <content>coverimage</content>
     </document>
   </documents>
-  <version>1.2.0</version>
+  <version>1.2.5</version>
   <controller>EPMC::tweepository</controller>
   <creators>
     <item>

@@ -11,7 +11,7 @@ Export::WordleLink
 
 $c->{tweepository_tools_on_summary_page} = [
 'Screen::Workflow::View','Screen::Workflow::Edit',
-'Screen::RequestTweetStreamExport'
+'Screen::RequestTweetStreamExport', 'Screen::ExportArchivedPackage'
 ];
 
 #the tweet_count at which the user is warned not to export
