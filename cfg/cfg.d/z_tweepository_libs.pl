@@ -1329,7 +1329,14 @@ sub render_top_lhs
 		}
 		else
 		{
-			return $session->make_text('Uncollected tweet with id ' . $twitterid);
+			my $xml = $session->xml;
+			my $frag = $xml->create_document_fragment;
+			my $url = 'http://twitter.com/statuses/' . $twitterid;
+			my $link = $session->render_link($url);
+			$link->appendChild($xml->create_text_node($twitterid));
+			$frag->appendChild($xml->create_text_node('Uncollected tweet with id '));
+			$frag->appendChild($link);
+			return $frag;
 		}
 
 	}
