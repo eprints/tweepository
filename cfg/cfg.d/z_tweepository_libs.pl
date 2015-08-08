@@ -834,7 +834,7 @@ sub render_profile_image_url
 
 	my $span = $xml->create_element('span', class=>'author-thumb');
 	my $a = $xml->create_element('a', href=>'http://twitter.com/' . $object->get_value('from_user'));
-	$a->appendChild($xml->create_element('img', height=>"48", width=>"48", class=>'author-thumb', src=>$value));
+	$a->appendChild($xml->create_element('img', height=>"48", width=>"48", class=>'author-thumb', src=>$value, onerror=>"this.onerror=''; this.src='/images/tweepository/egg.png';"));
 	$span->appendChild($a);
 
 	return $span;
@@ -1300,7 +1300,7 @@ sub render_top_lhs
 		my $user = $stuff->{from_user};
 
 		my $a = $session->make_element('a', href=>$base_url . $user, title=> $user);
-		$a->appendChild($session->make_element('img', height=>"48", width=>"48",src=>$img_url));
+		$a->appendChild($session->make_element('img', height=>"48", width=>"48",src=>$img_url, onerror=>"this.onerror=''; this.src='/images/tweepository/egg.png';"));
 		return $a;
 	}
 
