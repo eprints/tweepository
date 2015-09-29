@@ -129,9 +129,16 @@ $self->output_status('Search Complete');
 				if ( $err = $@ ) {
 $self->output_status('Error Occurred');
 					#handle response codes -- see https://dev.twitter.com/docs/error-codes-responses
-					if (ref $err and $err->isa('Net::Twitter::Error'))
+					if (
+						ref $err
+						and
+						(
+							$err->isa('Net::Twitter::Error')
+							or $err->isa('Net::Twitter::Lite::Error')
+						)
+					)
 					{
-$self->output_status('Net::Twitter::Error occurred');
+						$self->output_status('Twitter error occurred');
 						if ($err->code == 403) #no more data for this stream -- we've gone back as far as we can
 						{
 							$self->output_status('Err 403: No more results for this search');
@@ -145,8 +152,9 @@ $self->output_status('Net::Twitter::Error occurred');
 							last RETRY;
 						}
 					}
-
-					$self->output_status('Uncategorised error or twitter timout, retrying...');
+					my $code = $err->code;
+					my $class = ref $err;
+					$self->output_status("Error $code of type $class");
 					sleep 10;
 					next RETRY;
 				}
