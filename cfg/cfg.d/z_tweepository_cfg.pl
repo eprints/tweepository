@@ -1,6 +1,9 @@
 #turn off links and plugins that are not associated with the twitter harvesting functionality
 $c->{tweepository_simplify_menus} = 1;
 
+#how many tweets do we need to have to use .tar.gz to package it (zip files can't handle really large archives)
+$c->{tweepository_archive_tar_threshold} = 1000000; #one *million* tweets (problems with zip seem to happen at around 10 million or so, so this is quite safe). 
+
 $c->{tweepository_exports_on_summary_page} = [qw(
 Export::TweetStream::CSV
 Export::TweetStream::HTML
@@ -17,7 +20,7 @@ $c->{tweepository_tools_on_summary_page} = [
 #the tweet_count at which the user is warned not to export
 $c->{tweepository_export_threshold} = 100000;
 #only archive larger tweetsreams (preserve export functionality for smaller ones)
-$c->{tweepository_only_archive_large_tweetstreams} = 1;
+$c->{tweepository_only_archive_large_tweetstreams} = 0;
 
 #tidier screens achieved by having n divisible by cols
 # n -> how many to store

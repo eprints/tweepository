@@ -7,6 +7,7 @@ use File::Path qw/ make_path /;
 use Archive::Zip qw( :ERROR_CODES :CONSTANTS );
 use File::Copy;
 use JSON;
+use Cwd;
 
 use strict;
 
@@ -60,6 +61,25 @@ sub package_inactive_tweetstreams
 
 	TWEETSTREAM: foreach my $ts(@tweetstreams)
 	{
+		#check if the existing package is good enough
+		if (-e $ts->export_package_filepath)
+		{
+			$self->output_status("Verifying existing package for " . $ts->value('tweetstreamid'));
+                	if ($self->verify_package($ts))
+                	{
+				$self->output_status("Package successfully verified");
+				#we might not have to build a package
+				$ts->set_value('status', 'archived');
+				$ts->commit;
+				next TWEETSTREAM;
+			}
+			else
+			{
+				$self->output_status("Package failed verification");
+			}
+		}
+
+
 		$self->output_status("Creating Package for " . $ts->value('tweetstreamid')); 
 
 		$self->export_single_tweetstream($ts);
@@ -161,10 +181,119 @@ sub verify_package
 {
 	my ($self, $ts) = @_;
 	my $repo = $self->repository;
-	my $tsid = $ts->value('tweetstreamid');
+	my $tsid = $ts->id;
 
 	#get path to package
 	my $filename = $ts->export_package_filepath;
+	return 0 unless -e $filename;
+
+	my $tweet_count = 0;
+
+	if ($filename =~ m/\.zip$/)
+	{
+		 $tweet_count = $self->count_tweets_in_zip($ts, $filename);
+	}
+	elsif ($filename =~ m/\.tar\.gz/)
+	{
+		$tweet_count = $self->count_tweets_in_tar($ts, $filename);
+	}
+
+	$self->wait;
+	#check that there out count from the package matches the count from the database (refresh by query if necessary).
+	my $updated_tweet_count = $ts->count_with_query;
+	if ($updated_tweet_count != $ts->value('tweet_count'))
+	{
+		$ts->set_value('tweet_count', $updated_tweet_count);
+		$ts->commit;
+	}
+
+	$self->output_status("Count from query: $updated_tweet_count, Count from JSON verify: $tweet_count\n");
+
+	if ($tweet_count != $updated_tweet_count)
+	{
+		$self->{log_data}->{packages_validated}->{$tsid}->{end_state} = 'package invalid (count mismatch)';
+		$self->{log_data}->{packages_validated}->{$tsid}->{validate_end_time} = scalar localtime time;
+		
+		$repo->log("Tweetstream " . $ts->value('tweetstreamid') . " package $filename contains $tweet_count tweets, but the dataobj contains $updated_tweet_count");
+		return 0;
+	}
+	
+	$self->{log_data}->{packages_validated}->{$tsid}->{end_state} = 'Export Successful';
+	$self->{log_data}->{packages_validated}->{$tsid}->{validate_end_time} = scalar localtime time;
+
+	return 1;
+}
+
+sub count_tweets_in_tar
+{
+	my ($self, $ts, $filename) = @_;
+
+	$self->output_status("Checking tar $filename\n");
+
+	my $repo = $self->repository;
+	my $tsid = $ts->value('tweetstreamid');
+	my $tweet_count = 0;
+
+	#unpack to temp directory
+	my $tmp_dir = File::Temp->newdir( "ep-ts-validate-tempXXXXX", TMPDIR => 1 );
+
+	copy($filename, $tmp_dir);
+
+	my $filename_no_path = $ts->export_package_filename;
+
+	#quick and dirty OS call
+	my $cwd = cwd();
+	chdir $tmp_dir;
+
+	my $cmd = $repo->config('executables', 'tar');
+	`$cmd xzf $filename_no_path`;
+
+	chdir $cwd;
+
+	my $json_files = [];
+	$self->all_json_files_in_dir($tmp_dir, $json_files);
+	
+	foreach my $json_file (@{$json_files})
+	{
+		my $fh;
+		if (open ($fh, '<', $json_file))
+		{
+			$tweet_count += $self->count_tweets_in_json($fh, $json_file);
+		}
+		else
+		{
+			$repo->log("Couldn't open $json_file");
+		}
+	}
+	return $tweet_count;
+}
+
+sub all_json_files_in_dir
+{
+	my ($self, $path, $json_files) = @_;
+
+	if (-f $path && $path =~ m/\.json$/)
+	{
+		push @{$json_files}, $path;
+	}
+	if (-d $path)
+	{
+		opendir(DIR, $path);
+		my @files = grep { !/^\.{1,2}$/ } readdir (DIR); #ignore . and ..
+		closedir(DIR);
+		@files = map { $path . '/' . $_ } @files; #full paths
+		foreach (sort @files)
+		{
+			$self->all_json_files_in_dir($_, $json_files);
+		}
+	}
+}
+
+sub count_tweets_in_zip
+{
+	my ($self, $ts, $filename) = @_;
+	my $repo = $self->repository;
+	my $tsid = $ts->value('tweetstreamid');
 
 	$self->{log_data}->{packages_validated}->{$tsid}->{validate_start_time} = scalar localtime time;
 	if (!-e $filename)
@@ -198,60 +327,46 @@ sub verify_package
 		push @{$files->{$extension}}, $fname;
 	}
 
-        my $json = JSON->new->allow_nonref;
-
 	my $tweet_count = 0;
 	#foreach json file
 	$files->{json} = [] unless $files->{json}; #in case of empty tweetstreams
 	foreach my $json_file (sort @{$files->{json}})
 	{
 		my $fh = file_in_zip_to_fh($json_file, $zip);
-		my @json_txt = <$fh>;
-
-		$self->output_status('verifying json file ' . $json_file);
-
-                my $tweets = eval { $json->utf8()->decode(join('',@json_txt)); };
-		if ($@)
-		{
-			$repo->log("Problem parsing $json_file in $filename\n");
-			return 0;
-		}	
-
-		foreach my $json_tweet (@{$tweets->{tweets}})
-		{
-			if (!$json_tweet->{id})
-			{
-				$repo->log("Tweet with ID in $json_file in $filename\n");
-				return 0;
-			}
-			$tweet_count++;
-		}
+		$tweet_count += $self->count_tweets_in_json($fh, $json_file);
 	}
 
-	$self->wait;
-	#check that there out count from the package matches the count from the database (refresh by query if necessary).
-	my $updated_tweet_count = $ts->count_with_query;
-	if ($updated_tweet_count != $ts->value('tweet_count'))
-	{
-		$ts->set_value('tweet_count', $updated_tweet_count);
-		$ts->commit;
-	}
+	return $tweet_count;
+}
 
-	$self->output_status("Count from query: $updated_tweet_count, Count from JSON verify: $tweet_count\n");
+sub count_tweets_in_json
+{
+	my ($self, $filehandle, $filename) = @_;
+	my $repo = $self->repository;
+        my $json = JSON->new->allow_nonref;
 
-	if ($tweet_count != $updated_tweet_count)
+	my $tweet_count = 0;
+	my @json_txt = <$filehandle>;
+
+	$self->output_status('verifying json file ' . $filename);
+
+	my $tweets = eval { $json->utf8()->decode(join('',@json_txt)); };
+	if ($@)
 	{
-		$self->{log_data}->{packages_validated}->{$tsid}->{end_state} = 'package invalid (count mismatch)';
-		$self->{log_data}->{packages_validated}->{$tsid}->{validate_end_time} = scalar localtime time;
-		
-		$repo->log("Tweetstream " . $ts->value('tweetstreamid') . " package $filename contains $tweet_count tweets, but the dataobj contains $updated_tweet_count");
+		$repo->log("Problem parsing $filename in $filename\n");
 		return 0;
-	}
-	
-	$self->{log_data}->{packages_validated}->{$tsid}->{end_state} = 'Export Successful';
-	$self->{log_data}->{packages_validated}->{$tsid}->{validate_end_time} = scalar localtime time;
+	}	
 
-	return 1;
+	foreach my $json_tweet (@{$tweets->{tweets}})
+	{
+		if (!$json_tweet->{id})
+		{
+			$repo->log("Tweet with no ID in $filename in $filename\n");
+			return 0;
+		}
+		$tweet_count++;
+	}
+	return $tweet_count;
 }
 
 sub generate_log_string

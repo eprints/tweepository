@@ -46,7 +46,8 @@ sub action_deactivate_tweetstreams
 		push @{$self->{log_data}->{tweetstreams_deactivated}}, $ts_id;
 
 		#remove package, if it exists -- this will be regenerated as the tweetstream is archived
-		$ts->delete_export_package;
+		#20151011 -- actually, don't -- packages are removed when regenerated anyway
+#		$ts->delete_export_package;
 	}
 
 	$self->{log_data}->{end_time} = scalar localtime time;

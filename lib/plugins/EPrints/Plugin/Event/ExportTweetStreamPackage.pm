@@ -5,7 +5,9 @@ use EPrints::Plugin::Event::LockingEvent;
 
 use File::Path qw/ make_path /;
 use Archive::Zip;
+use Archive::Tar;
 use File::Copy;
+use Cwd;
 
 use strict;
 
@@ -22,6 +24,8 @@ sub _initialise_constants
 sub action_export_tweetstream_packages
 {
 	my ($self, @ids) = @_;
+
+	$self->output_status('action_export_tweetstream_packages called');
 
         $self->{log_data}->{start_time} = scalar localtime time;
 
@@ -376,26 +380,72 @@ $self->output_status('Query Completed');
 
 	$self->output_status('generating zip file');
 
-	$ts->delete_export_package;
+	$self->output_status('Checking Status Directly in Database');
+	#query the database directly -- we don't want to risk a race condition with the archiver
+	my $sql = 'SELECT status FROM tweetstream WHERE tweetstreamid = ' . $ts->id ;
+	$sth = $db->prepare($sql);
+	$sth->execute(0);
+	my $row = $sth->fetchrow_hashref;
 
-	my $final_filepath = $ts->export_package_filepath;
+	if ($row->{status} eq 'archived')
+	{
+		$ts->delete_export_package;
 
-	create_zip($self->{tmp_dir}, "tweetstream$tsid", $final_filepath );
+		my $final_filepath = $ts->export_package_filepath;
 
-	$self->{log_data}->{tweetstreams_exported}->{$ts->value('tweetstreamid')}->{package_filesize} = -s $final_filepath;
-	$self->{log_data}->{tweetstreams_exported}->{$ts->value('tweetstreamid')}->{package_generation_end_time} = scalar localtime time;
+		$self->create_zip($self->{tmp_dir}, "tweetstream$tsid", $final_filepath );
+
+		$self->{log_data}->{tweetstreams_exported}->{$ts->value('tweetstreamid')}->{package_filesize} = -s $final_filepath;
+		$self->{log_data}->{tweetstreams_exported}->{$ts->value('tweetstreamid')}->{package_generation_end_time} = scalar localtime time;
+	}
+	else
+	{
+		$self->output_status('OH DEAR -- it appears this is an archived package -- I should not remove what is there');
+
+	}
 	$self->output_status('Done generating package');
 }
 
 
 sub create_zip
 {
-	my ($dir_to_zip, $dirname_in_zip, $zipfile) = @_;
+	my ($self, $dir_to_zip, $dirname_in_zip, $zipfile) = @_;
+	my $repo = $self->repository;
 
-	my $z = Archive::Zip->new();
+	#handle backwards compatibility with zip
+	if ($zipfile =~ m/\.zip$/)
+	{
+		my $z = Archive::Zip->new();
 
-	$z->addTree($dir_to_zip, $dirname_in_zip);
-	$z->writeToFileNamed($zipfile);
+		$z->addTree($dir_to_zip, $dirname_in_zip);
+		$z->writeToFileNamed($zipfile);
+	}
+	elsif ($zipfile =~ m/\.tar\.gz/)
+	{
+		#move files into dirname_in_zip
+		#change working directory
+		#tar only the filesnames useing /bin/tar -- the library will hold all in memory at once.
+
+		#move all files into direname_in_zip
+                opendir(DIR, $dir_to_zip);
+                my @files = grep { !/^\.{1,2}$/ } readdir (DIR); #ignore . and ..
+                closedir(DIR);
+
+		mkdir $dir_to_zip . '/' . $dirname_in_zip;
+
+                foreach my $filename (sort @files)
+                {
+			move(join('/',($dir_to_zip,$filename)),join('/',$dir_to_zip,$dirname_in_zip,$filename));
+                }
+
+		my $cwd = cwd();
+		chdir $dir_to_zip;
+
+		my $cmd = $repo->config('executables', 'tar');
+		`$cmd cvzf $zipfile $dirname_in_zip`; #quick and dirty -- just send this to linux
+
+		chdir $cwd;
+	}
 }
 
 

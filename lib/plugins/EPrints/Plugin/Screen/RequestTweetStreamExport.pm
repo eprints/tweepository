@@ -252,6 +252,22 @@ sub export
 
 sub export_mimetype
 {
+	my ($self) = @_;
+
+	my $tweetstream = $self->{processor}->{dataobj};
+
+	my $export_package_filename = $tweetstream->export_package_filename;
+
+	if ($export_package_filename =~ m/\.zip$/)
+	{
+		return 'application/zip';
+	}
+	if ($export_package_filename =~ m/\.tar\.gz$/)
+	{
+		return 'application/gzip';
+	}
+
+
 	return "text/plain";
 }
 
@@ -266,8 +282,11 @@ sub export_url
 {
 	my( $self ) = @_;
 
-	my $url = URI->new( $self->{session}->get_uri() . "/export_" . $self->{session}->get_repository->get_id . ".zip" );
-	my $tweetstreamid = $self->{processor}->{dataobj}->id;
+	my $tweetstream = $self->{processor}->{dataobj};
+	my $tweetstreamid = $tweetstream->id;
+	my $filename = $tweetstream->export_package_filename;
+
+	my $url = URI->new( $self->{session}->get_uri() . "/export_tweetstream_package/" . $filename );
 
 	$url->query_form(
 		screen => $self->{processor}->{screenid},

@@ -215,7 +215,7 @@ $c->add_dataset_field( 'tweetstream', {
 		'sub_name' => 'count',
 		'type' => 'int',
 	}],
-	render_value => 'EPrints::DataObj::TweetStream::render_top_field',
+	render_value => 'EPrints::DataObj::TweetStream::render_top_tag_cloud',
 },);
 $c->add_dataset_field('tweetstream',  {
 	name => "top_from_users", type=>"compound", multiple=>1,
@@ -245,7 +245,7 @@ $c->add_dataset_field('tweetstream',  { name => "top_tweetees", type=>"compound"
 		'type' => 'int',
 	}
 	],
-	render_value => 'EPrints::DataObj::TweetStream::render_top_field',
+	render_value => 'EPrints::DataObj::TweetStream::render_top_tag_cloud',
 },);
 $c->add_dataset_field('tweetstream',  { name => "top_urls_from_text", type=>"compound", multiple=>1,
 	'fields' => [
@@ -1150,6 +1150,42 @@ sub delete_export_package
 	}
 }
 
+sub export_package_filename
+{
+	my ($self) = @_;
+
+	my $target_dir = $self->export_package_directory;
+	my $filename =  'tweetstream' . $self->id . '_package';
+	my $zip_filename = $filename . '.zip';
+	my $tar_filename = $filename . '.tar.gz';
+
+	#this code handles the switch from .zip to .tar.gz -- only return .zip for existing packages
+	my $zip_path = $target_dir . $zip_filename;
+	my $tar_path = $target_dir . $tar_filename;
+
+	#if there's an existing file, return that (there should only ever be one)
+	return $zip_filename if -e $zip_path;
+	return $tar_filename if -e $tar_path;
+
+	#there isn't an existing one -- we should use zip files for small and tar files for big tweetstreams
+	#the tweet count is a rolling total and get incremented every time a tweet is added, so this should be safe
+	if ($self->value('tweet_count') > $self->repository->config('tweepository_archive_tar_threshold'))
+	{
+		return $tar_filename;
+	}
+	return $zip_filename;
+}
+
+sub export_package_directory
+{
+	my ($self) = @_;
+
+	my $target_dir = $self->repository->config('archiveroot') . '/tweepository_packages/export/';
+
+	make_path($target_dir) unless -d $target_dir;
+
+	return $target_dir;
+}
 
 sub export_package_filepath
 {
@@ -1157,13 +1193,11 @@ sub export_package_filepath
 	my $repo = $self->repository;
 
 	my $repository = @_;
-	my $target_dir = $repo->config('archiveroot') . '/tweepository_packages/export/';
 
-	make_path($target_dir) unless -d $target_dir;
+	my $target_dir = $self->export_package_directory;
+	my $filename = $self->export_package_filename;
 
-	my $filename = 'tweetstream' . $self->id . '_package.zip';
-
-	return $target_dir . $filename;
+	return "$target_dir$filename";
 }
 
 sub render_exports
@@ -1173,6 +1207,52 @@ sub render_exports
 	return $object->render_exporters;
 }
 
+sub render_top_tag_cloud
+{
+        my( $session , $field , $value , $alllangs , $nolink , $object ) = @_;
+
+	if (!(scalar @{$value}))
+	{
+		return $session->html_phrase('top_field_no_data');
+	}
+
+	my $fieldname = $field->name;
+
+	my $cloud_min = 80;
+	my $cloud_max = 200;
+	my $range = $cloud_max - $cloud_min;
+
+	#first find the highest to scale all others
+	my $highest = 0;
+	my $lowest = undef;
+	foreach my $v (@{$value})
+	{
+		$lowest = $v->{count} unless defined $lowest;
+		$lowest = $v->{count} if $v->{count} < $lowest;
+		$highest = $v->{count} if $v->{count} > $highest;
+	}
+
+	my $tags = [];
+
+	foreach my $single_value (@{$value})
+	{
+		my $label = render_top_lhs($session, $fieldname, $single_value);
+		my $size = int( ( log(1+($single_value->{count} - $lowest)) / log(1+($highest-$lowest)) ) * $range ) + $cloud_min;
+
+		my $span = $session->make_element( "span", style=>"font-size: $size\%" );
+		$span->appendChild( $label );
+		push @{$tags}, $span;
+	}
+
+	my $cloud = $session->xml->create_document_fragment;
+	foreach my $tag (sort { lc(EPrints::Utils::tree_to_utf8($a)) cmp lc(EPrints::Utils::tree_to_utf8($b))} @{$tags})
+	{
+		$cloud->appendChild($tag);
+		$cloud->appendChild($session->xml->create_text_node(' '));
+	}
+	return $cloud;
+
+}
 
 
 sub render_top_frequency_values
@@ -1260,10 +1340,12 @@ sub render_top_lhs
 		my $value = $stuff->{hashtag}; 
 		
 		my $max_render_len = $session->config('tweetstream_tops',$fieldname,'max_len'); 
-		
-		my $url = 'http://search.twitter.com/search?q=' . URI::Escape::uri_escape($value); 
 
-		my $a = $session->make_element('a', href=>$url, title=>$value); 
+		my $hash_stripped_tag = $value;	
+		$hash_stripped_tag =~ s/^#//;
+		my $url = 'http://twitter.com/hashtag/' . URI::Escape::uri_escape($hash_stripped_tag);
+
+		my $a = $session->make_element('a', href=>$url, title=>$stuff->{count}); 
 
 		if (length $value > $max_render_len) 
 		{ 
@@ -1309,7 +1391,7 @@ sub render_top_lhs
 		my $base_url = 'http://twitter.com/';
 		my $user = $stuff->{tweetee};
 
-		my $a = $session->make_element('a', href=>$base_url . $user, title=> $user);
+		my $a = $session->make_element('a', href=>$base_url . $user, title=> $stuff->{count});
 		$a->appendChild($session->make_text($user));
 		return $a;
 	}
