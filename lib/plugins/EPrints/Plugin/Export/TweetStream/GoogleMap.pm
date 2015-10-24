@@ -12,7 +12,10 @@ sub new
 
 	my( $self ) = $class->SUPER::new( %opts );
 
-	$self->{name} = "Google Map";
+	my $n = $self->repository->config('tweepository_newest_coordinates_n');
+	$n = 'ERR' unless $n;
+
+	$self->{name} = "Google Map (most recent $n geolocations)";
 	$self->{accept} = [ 'dataobj/tweetstream' ];
 	$self->{visible} = "all"; 
 	$self->{suffix} = ".html";

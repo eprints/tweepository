@@ -1020,7 +1020,7 @@ sub add_tweets
 				my $coords = $tweet->value('coordinates');
 				push @{$newest_coords}, { lat => $coords->[0], lon => $coords->[1] };
 
-				my $n = $repo->config('tweepository_newest_tweets_n');
+				my $n = $repo->config('tweepository_newest_coordinates_n');
 				$n = 100 unless $n; #need config variable
 
 				if ( (scalar @{$newest_coords}) > $n)

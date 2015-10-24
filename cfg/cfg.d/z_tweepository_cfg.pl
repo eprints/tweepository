@@ -28,7 +28,7 @@ $c->{tweepository_tools_on_summary_page} = [
 'Screen::RequestTweetStreamExport', 'Screen::ExportArchivedPackage',
 ];
 
-$c->{tweepository_newest_tweets_n} = 300;
+$c->{tweepository_newest_coordinates_n} = 300;
 
 #the tweet_count at which the user is warned not to export
 $c->{tweepository_export_threshold} = 100000;
