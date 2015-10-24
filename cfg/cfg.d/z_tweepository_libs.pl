@@ -748,7 +748,7 @@ sub enrich_text
 
         #now insert links to hashtags and usernames - how do we stop this from modifying text inside a long URL
         $expanded_message =~ s|\@([A-Za-z0-9-_]+)|<a href="http://twitter.com/$1">$&</a>|g;
-        $expanded_message =~ s|#([A-Za-z0-9-_]+)|<a href="http://search.twitter.com/search?q=$1">$&</a>|g;
+        $expanded_message =~ s|#([A-Za-z0-9-_]+)|<a href="http://twitter.com/hashtag/$1">$&</a>|g;
 
         #now unescape HASH and AT
         $expanded_message =~ s/ESCAPED_HASH/#/g;
