@@ -384,10 +384,14 @@ $self->output_status('Query Completed');
 	#query the database directly -- we don't want to risk a race condition with the archiver
 	my $sql = 'SELECT status FROM tweetstream WHERE tweetstreamid = ' . $ts->id ;
 	$sth = $db->prepare($sql);
-	$sth->execute(0);
+	$sth->execute();
 	my $row = $sth->fetchrow_hashref;
 
 	if ($row->{status} eq 'archived')
+	{
+		$self->output_status('OH DEAR -- it appears this is an archived package -- I should not remove what is there');
+	}
+	else
 	{
 		$ts->delete_export_package;
 
@@ -397,11 +401,6 @@ $self->output_status('Query Completed');
 
 		$self->{log_data}->{tweetstreams_exported}->{$ts->value('tweetstreamid')}->{package_filesize} = -s $final_filepath;
 		$self->{log_data}->{tweetstreams_exported}->{$ts->value('tweetstreamid')}->{package_generation_end_time} = scalar localtime time;
-	}
-	else
-	{
-		$self->output_status('OH DEAR -- it appears this is an archived package -- I should not remove what is there');
-
 	}
 	$self->output_status('Done generating package');
 }
@@ -442,7 +441,7 @@ sub create_zip
 		chdir $dir_to_zip;
 
 		my $cmd = $repo->config('executables', 'tar');
-		`$cmd cvzf $zipfile $dirname_in_zip`; #quick and dirty -- just send this to linux
+		`$cmd czf $zipfile $dirname_in_zip`; #quick and dirty -- just send this to linux
 
 		chdir $cwd;
 	}

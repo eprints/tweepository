@@ -8,14 +8,27 @@ $c->{tweepository_exports_on_summary_page} = [qw(
 Export::TweetStream::CSV
 Export::TweetStream::HTML
 Export::TweetStream::JSON
+Export::TweetStream::GoogleMap
 Export::TweetStream::GraphML
 Export::WordleLink
 )];
 
+#allow these exporters even when we have loads of tweets in the tweetstream
+$c->{tweepository_exports_on_summary_page_too_many} = [qw(
+Export::TweetStream::GoogleMap
+)];
+
+#exporters to use when the tweetstream is archived
+$c->{tweepository_exports_on_summary_page_archived} = [qw(
+Export::TweetStream::GoogleMap
+)];
+
 $c->{tweepository_tools_on_summary_page} = [
 'Screen::Workflow::View','Screen::Workflow::Edit',
-'Screen::RequestTweetStreamExport', 'Screen::ExportArchivedPackage'
+'Screen::RequestTweetStreamExport', 'Screen::ExportArchivedPackage',
 ];
+
+$c->{tweepository_newest_tweets_n} = 300;
 
 #the tweet_count at which the user is warned not to export
 $c->{tweepository_export_threshold} = 100000;

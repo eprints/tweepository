@@ -83,7 +83,7 @@
 <div class='tweetstream_summary'>
 <table> 
 <tr valign = 'top'>
-<td>
+<td style="width: 50%">
 
     <h2>Tools</h2>
 	<epc:print expr="tools"/>

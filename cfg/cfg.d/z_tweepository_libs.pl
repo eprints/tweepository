@@ -8,12 +8,14 @@ foreach my $pluginid (qw/
 	Event::UpdateTweetStreams
 	Export::TweetStream::CSV
 	Export::TweetStream::GraphML
+	Export::TweetStream::GoogleMap
 	Export::TweetStream::HTML
 	Export::TweetStream::JSON
 	Screen::EPMC::tweepository
 	Screen::ManageTweetstreamsLink
 	Screen::RequestTweetStreamExport
 	Screen::ExportArchivedPackage
+	Screen::GoogleMap
 	Screen::TweetStreamSearch
 /)
 {
@@ -147,6 +149,7 @@ $c->add_dataset_field( 'tweet', { name=>"profile_image_url", type=>"url", render
 $c->add_dataset_field( 'tweet', { name=>"iso_language_code", type=>"text" }, );
 $c->add_dataset_field( 'tweet', { name=>"source", type=>"text" }, );
 $c->add_dataset_field( 'tweet', { name=>"created_at", type=>"time"}, );
+$c->add_dataset_field( 'tweet', { name=>"coordinates", type=>"text", multiple=>1}, );
 
 #value added extraction and enrichment
 $c->add_dataset_field( 'tweet', { name=>"text_is_enriched", type=>"boolean" }, );
@@ -288,6 +291,19 @@ $c->add_dataset_field('tweetstream',  { name => "top_retweeted", type=>"compound
 	],
 	render_value => 'EPrints::DataObj::TweetStream::render_top_field',
 },);
+
+$c->add_dataset_field('tweetstream', { name => 'newest_coordinates', type => 'compound', multiple => 1, 
+	'fields' => [
+	{
+		'sub_name' => 'lon',
+		'type' => 'text',
+	},
+	{
+		'sub_name' => 'lat',
+		'type' => 'text',
+	}
+	],
+});
 
 #for creation of the bar chart
 $c->add_dataset_field( 'tweetstream', { name => "frequency_period", type => 'set', options => [ 'daily', 'weekly', 'monthly', 'yearly' ] }, );
@@ -626,6 +642,17 @@ sub process_json
 			$self->set_value($fieldname, $tweet_data->{$fieldname});
 		}
 
+	}
+
+	if (
+		$tweet_data->{coordinates}
+		&& $tweet_data->{coordinates}->{coordinates}
+	)
+	{
+		my $lon = $tweet_data->{coordinates}->{coordinates}->[0];
+		my $lat = $tweet_data->{coordinates}->{coordinates}->[1];
+
+		$self->set_value('coordinates', [$lat,$lon]);
 	}
 
 	if (exists $tweet_data->{retweeted_status})
@@ -983,6 +1010,26 @@ sub add_tweets
 			#do we need to update oldest or newest?
 			$refresh_needed->{newest_tweets} = 1 if ($tweet->value('twitterid') > $highest_and_lowest->{newest_tweets});
 			$refresh_needed->{oldest_tweets} = 1 if ($tweet->value('twitterid') < $highest_and_lowest->{oldest_tweets});
+
+			#collect the most recent N coordinates
+			if ($tweet->is_set('coordinates'))
+			{
+				my $newest_coords = $self->value('newest_coordinates');
+				$newest_coords = [] unless defined $newest_coords;
+
+				my $coords = $tweet->value('coordinates');
+				push @{$newest_coords}, { lat => $coords->[0], lon => $coords->[1] };
+
+				my $n = $repo->config('tweepository_newest_tweets_n');
+				$n = 100 unless $n; #need config variable
+
+				if ( (scalar @{$newest_coords}) > $n)
+				{
+					my @c = @{$newest_coords}[-$n..-1];
+					$newest_coords = \@c;
+				}
+				$self->set_value('newest_coordinates', $newest_coords);
+			}
 
 			#update ncols fields if necessary
 			foreach my $tweet_fieldname (qw/ hashtags tweetees urls_from_text /)
@@ -1915,17 +1962,24 @@ sub render_exporters
 	my $threshold = $repository->config('tweepository_export_threshold');
 	$threshold = 100000 unless $threshold;
 
-	if ($self->value('status') eq 'archived')
-	{
-		return $repository->html_phrase('TweetStream/export_archived');
-	}
+	my $plugin_list = 'tweepository_exports_on_summary_page';
+	my $phrase_id = 'TweetStream/export_menu';
 
 	if ($self->value('tweet_count') > $threshold)
 	{
-		return $repository->html_phrase('TweetStream/export_too_many');
+		$plugin_list = 'tweepository_exports_on_summary_page_too_many';
+		$phrase_id = 'TweetStream/export_too_many';
 	}
 
-	my $pluginids = $repository->config('tweepository_exports_on_summary_page');
+	if ($self->value('status') eq 'archived')
+	{
+		$plugin_list = 'tweepository_exports_on_summary_page_arhived';
+		$phrase_id = 'TweetStream/export_archived';
+		return $repository->html_phrase('TweetStream/export_archived');
+	}
+	
+
+	my $pluginids = $repository->config($plugin_list);
 
 	my $export_ul = $xml->create_element('ul');
 	foreach my $pluginid (@{$pluginids})
@@ -1941,7 +1995,7 @@ sub render_exporters
 		$export_ul->appendChild( $li );
 
 	}
-	return ($repository->html_phrase('TweetStream/export_menu', export_list => $export_ul));
+	return ($repository->html_phrase($phrase_id, export_list => $export_ul));
 
 	
 }

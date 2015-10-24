@@ -8,12 +8,22 @@
 
 <epp:phrase id="top_field_no_data"><p>Processing Pending...</p></epp:phrase>
 
+<epp:phrase id="tweetstream_fieldname_newest_coordinates">Newest Coordinates</epp:phrase>
+<epp:phrase id="tweetstream_fieldname_newest_coordinates_lat">Latitude</epp:phrase>
+<epp:phrase id="tweetstream_fieldname_newest_coordinates_lon">Longitude</epp:phrase>
+<epp:phrase id="tweet_fieldname_coordinates">Coordinates</epp:phrase>
+
+
+    <epp:phrase id="TweetStream/export_menu"><p>Export the feed as: <epc:pin name="export_list"/></p></epp:phrase>
+    <epp:phrase id="TweetStream/export_too_many"><p>This feed is large, so only the following exporters are available: <epc:pin name="export_list"/></p></epp:phrase>
+    <epp:phrase id="TweetStream/export_archived"><p>This feed is archived, so only the following exporters are available: <epc:pin name="export_list"/></p></epp:phrase>
+
+
 
     <epp:phrase id="Plugin/Screen/RequestTweetStreamExport:title">Twitter Packager</epp:phrase>
     <epp:phrase id="Plugin/Screen/RequestTweetStreamExport:queue_export">Generate New Package</epp:phrase>
     <epp:phrase id="Plugin/Screen/RequestTweetStreamExport:export_redir">Download Package</epp:phrase>
     <epp:phrase id="Plugin/Screen/ExportArchivedPackage:export_redir">Download Package</epp:phrase>
-    <epp:phrase id="TweetStream/export_too_many"><p>There are too many tweets in this collection to safely use the default exports.  Please use the package exporter in the tools below.</p></epp:phrase>
     <epp:phrase id="TweetStream/export_arvchived"><p>This collection has been archived.  Please download the package.</p></epp:phrase>
 
     <epp:phrase id="Plugin/Screen/RequestTweetStreamExport:preamble"><div class="tweepository_preamble"><p>This tool exists to assist with exporting collections that are too large to export with the standard tweepository exporters.  It will generate a zip file containing CSV and JSON files of all of the tweets.  It may take several hours to run.</p>
@@ -102,7 +112,6 @@
 
     <epp:phrase id="DataObj::Tweet/unshown_items"><span class='unshown_tweets'><epc:pin name="n"/> tweets not shown...</span></epp:phrase>
     <epp:phrase id="DataObj::Tweet::error_text_-1">A number of unharvested tweets may have appeared in the stream at this point.</epp:phrase>
-    <epp:phrase id="TweetStream/export_menu"><p>Export the feed as: <epc:pin name="export_list"/></p></epp:phrase>
     <epp:phrase id="datasethelp_tweetstream">Archive a stream of tweets based on a search term.</epp:phrase> 
     <epp:phrase id="datasetname_tweet">Tweet</epp:phrase>
     <epp:phrase id="datasetname_tweetstream">Twitter Feed</epp:phrase>
