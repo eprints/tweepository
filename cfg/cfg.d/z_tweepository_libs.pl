@@ -783,6 +783,12 @@ sub remove_bad_urls
 		'http://t.c' => 1,
 		'http://t' => 1,
 		'http://t.co' => 1, #technically valid, but almost always a mistake
+		'https://' => 1,
+		'https:/' => 1,
+		'https:' => 1,
+		'https://t.c' => 1,
+		'https://t' => 1,
+		'https://t.co' => 1, #technically valid, but almost always a mistake
 	};
 
 	foreach my $url (@{$urls})
