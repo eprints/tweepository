@@ -32,11 +32,20 @@
 	<epc:print expr="exports"/>
     <h2>Tools</h2>
 	<epc:print expr="tools"/>
+    <h2>Geolocations</h2>
+      <choose>
+        <when test="length(newest_coordinates) gt 1">
+          <p>The map shows up up to 300 recent geotagged tweet locations.</p>
+          <div style="height: 300px"><epc:print expr="newest_coordinates"/></div>
+        </when>
+        <otherwise>
+          <p style="margin-left: 3em">Currently no geotagged data</p>
+        </otherwise>
+      </choose>
     <h2>Top Tweeters</h2>
     <div style="margin-left: 3em">
       <epc:print expr="top_from_users"/>
     </div>
-
     <h2>Top Hashtags</h2>
     <div style="margin-left: 3em">
       <epc:print expr="top_hashtags"/>
@@ -122,6 +131,17 @@
 
 </td>
 <td valign = 'top' style = 'padding-left: 1em'>
+
+    <h2>Geolocations</h2>
+      <choose>
+        <when test="length(newest_coordinates) gt 1">
+          <p>The map shows up up to 300 recent geotagged tweet locations.</p>
+          <div style="height: 300px"><epc:print expr="newest_coordinates"/></div>
+        </when>
+        <otherwise>
+          <p style="margin-left: 3em">Currently no geotagged data</p>
+        </otherwise>
+      </choose>
 
     <h2>Top Links</h2>
     <div style="margin-left: 3em">

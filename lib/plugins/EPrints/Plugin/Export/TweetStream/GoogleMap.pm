@@ -64,8 +64,6 @@ sub _page_empty
 	my ($self, $title) = @_;
 
 	return <<END;
-
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
 <title>$title</title>
@@ -84,15 +82,13 @@ sub _page
 {
 	my ($self, $title, $coordinate_string) = @_;
 	return <<END;
-
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
 <title>$title</title>
     <style>
       #map {
-        width: 800px;
-        height: 600px;
+        width: 100%;
+        height: 100%;
       }
     </style>
     <script src="https://maps.googleapis.com/maps/api/js">// <!-- No script --></script>
@@ -101,7 +97,7 @@ sub _page
         var mapCanvas = document.getElementById('map');
         var mapOptions = {
           center: new google.maps.LatLng(30, 10),
-          zoom: 2,
+          zoom: 1,
           mapTypeId: google.maps.MapTypeId.ROADMAP
         }
         var map = new google.maps.Map(mapCanvas, mapOptions);

@@ -303,6 +303,7 @@ $c->add_dataset_field('tweetstream', { name => 'newest_coordinates', type => 'co
 		'type' => 'text',
 	}
 	],
+	render_value => 'EPrints::DataObj::TweetStream::render_newest_coordinates',
 });
 
 #for creation of the bar chart
@@ -1353,6 +1354,21 @@ sub get_url
 	my ($self) = @_;
 
 	return $self->uri;
+}
+
+sub render_newest_coordinates
+{
+        my( $repo , $field , $value , $alllangs , $nolink , $object ) = @_;
+
+	my $xml = $repo->xml;
+	my $plugin = $repo->plugin('Export::TweetStream::GoogleMap');
+	my $url = $plugin->dataobj_export_url($object);
+
+	$url =~ s#^[^/]*//#//#;
+
+	my $iframe = $xml->create_element('iframe', id => 'map-iframe', src => $url);
+
+	return $iframe;
 }
 
 sub render_top_field
