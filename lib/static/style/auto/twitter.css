@@ -1,3 +1,21 @@
+.tag-cloud-item a
+{
+	text-decoration: none;
+	margin: 5px;
+	padding: 2px;
+}
+
+.tag-cloud-item a:visited, .tag-cloud-item a:link
+{
+	color: #777;
+}
+
+.tag-cloud-item a:hover
+{
+	color: #555;
+	background-color: #BBB;
+}
+
 #map-iframe
 {
 	width: 100%;

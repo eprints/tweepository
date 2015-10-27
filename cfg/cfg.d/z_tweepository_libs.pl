@@ -1293,7 +1293,7 @@ sub render_top_tag_cloud
 		my $label = render_top_lhs($session, $fieldname, $single_value);
 		my $size = int( ( log(1+($single_value->{count} - $lowest)) / log(1+($highest-$lowest)) ) * $range ) + $cloud_min;
 
-		my $span = $session->make_element( "span", style=>"font-size: $size\%" );
+		my $span = $session->make_element( "span", class => 'tag-cloud-item', style=>"font-size: $size\%" );
 		$span->appendChild( $label );
 		push @{$tags}, $span;
 	}
@@ -1422,7 +1422,7 @@ sub render_top_lhs
 			$value = substr($value, 0, $chars) . '...'; 
 		} 
 
-		$a->appendChild($session->make_text($value)); 
+		$a->appendChild($session->make_text($hash_stripped_tag)); 
 		return $a;       
 	};
 
