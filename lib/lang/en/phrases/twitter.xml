@@ -5,6 +5,7 @@
 <epp:phrase id="lib/searchfield:help_counter">Counter</epp:phrase>
 <epp:phrase id="tweetstream_fieldname_tools">Tools</epp:phrase>
 <epp:phrase id="tweetstream_fieldname_exports">Exports</epp:phrase>
+<epp:phrase id="tweetstream_fieldname_start_date">Start Date</epp:phrase>
 
 <epp:phrase id="top_field_no_data"><p>Processing Pending...</p></epp:phrase>
 

@@ -196,6 +196,7 @@ $c->add_dataset_field( 'tweetstream', { name =>"status", type => 'set', options 
 $c->add_dataset_field( 'tweetstream', { name=>"search_string", type=>"text", required=>"yes" }, );
 $c->add_dataset_field( 'tweetstream', { name=>"geocode", type=>"text" }, );
 $c->add_dataset_field( 'tweetstream', { name=>"expiry_date", type=>"date", required=>"yes" }, );
+$c->add_dataset_field( 'tweetstream', { name=>"start_date", type=>"date" } );
 $c->add_dataset_field( 'tweetstream', { name => "title", type=>'text' }, );
 $c->add_dataset_field( 'tweetstream', { name => "abstract", type=>'longtext' }, );
 $c->add_dataset_field( 'tweetstream', { name => "project_title", type=>'text' }, );
@@ -1694,6 +1695,16 @@ sub commit
 		$self->set_value('title', 'Twitter Feed for ' . $self->value('search_string'));
 	}
 
+	if ($self->is_set('oldest_tweets'))
+	{
+		my $ids = $self->value('oldest_tweets');
+		my $oldest_tweet = $self->repository->dataset('tweet')->dataobj($ids->[0]);
+		if ($oldest_tweet)
+		{
+			my $t = $oldest_tweet->value('created_at');
+			$self->set_value('start_date', $t); #I checked the code, you can set a Date field with a Time type, it strips the time off.
+		}
+	}
 
 	if( !defined $self->{changed} || scalar( keys %{$self->{changed}} ) == 0 )
 	{

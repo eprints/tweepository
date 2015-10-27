@@ -24,6 +24,7 @@
        <table style="margin-left: 1em">
        <tr><th style="text-align: right">ID:</th><td><epc:print expr="tweetstreamid"/></td></tr>
        <tr><th style="text-align: right">Search String:</th><td><epc:print expr="search_string"/></td></tr>
+       <tr><th style="text-align: right">Start Date:</th><td><epc:print expr="start_date"/></td></tr>
        <tr><th style="text-align: right">Expiry Date:</th><td><epc:print expr="expiry_date"/></td></tr>
        <tr><th style="text-align: right">Status:</th><td><epc:print expr="status"/></td></tr>
        <tr><th style="text-align: right">Number of Tweets:</th><td><epc:print expr="tweet_count"/></td></tr>
