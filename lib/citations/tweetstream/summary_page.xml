@@ -36,7 +36,7 @@
     <h2>Geolocations</h2>
       <choose>
         <when test="length(newest_coordinates) gt 1">
-          <p>The map shows up up to 300 recent geotagged tweet locations.</p>
+          <p>The map shows <epc:print expr="length(newest_coordinates)"/> recent geotagged tweet locations.</p>
           <div style="height: 300px"><epc:print expr="newest_coordinates"/></div>
         </when>
         <otherwise>

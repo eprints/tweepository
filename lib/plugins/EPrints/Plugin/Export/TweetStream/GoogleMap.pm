@@ -37,6 +37,7 @@ sub output_dataobj
 	my $c = [];
 	foreach my $coordinate (@{$coordinates})
 	{
+		next unless $coordinate->{lat} && $coordinate->{lon};
 		push @{$c}, join('', '{ lat: ', $coordinate->{lat}, ', lng: ', $coordinate->{lon}, '}');
 	}
 
@@ -92,26 +93,30 @@ sub _page
       }
     </style>
     <script src="https://maps.googleapis.com/maps/api/js">// <!-- No script --></script>
+    <script src="https://googlemaps.github.io/js-marker-clusterer/src/markerclusterer.js">// <!-- No script --></script>
     <script>
       function initialize() {
-        var mapCanvas = document.getElementById('map');
-        var mapOptions = {
-          center: new google.maps.LatLng(30, 10),
+
+        var map = new google.maps.Map(document.getElementById('map'), {
           zoom: 1,
+          center: new google.maps.LatLng(30, 10),
           mapTypeId: google.maps.MapTypeId.ROADMAP
-        }
-        var map = new google.maps.Map(mapCanvas, mapOptions);
+        });
+
+
 
 	var latlongs = [ $coordinate_string ];
+	var markers = [];
 	for (latlong of latlongs)
 	{
+		
 		var marker = new google.maps.Marker({
-			position: latlong,
-			map: map
+			position: new google.maps.LatLng(latlong['lat'],latlong['lng']),
 		});
-
+		markers.push(marker);
 	}
-
+	var clustererOptions = {gridSize: 20, maxZoom: 13};
+	var markerCluster = new MarkerClusterer(map, markers, clustererOptions);
       }
       google.maps.event.addDomListener(window, 'load', initialize);
     </script>
