@@ -34,6 +34,7 @@ sub action_update_tweetstreams
 
 	$self->{verbose} = $opts{verbose};
 	$self->{status_log_file} = $opts{status_log_file};
+	$self->{max_tweets_per_session} = $self->repository->config('tweepository_max_tweets_per_session');
 
 	if ($self->is_locked)
 	{
@@ -173,6 +174,8 @@ $self->output_status('Retry loop complete');
 			{
 $self->output_status('Results flag set');
 				my $results_count = scalar @{$results->{statuses}};
+				$current_item->{session_tweet_count} += $results_count;
+
 				#no errors, process the results
 				if ($results_count < 1)#if an empty page of results, assume no more tweets
 				{
@@ -191,6 +194,12 @@ $self->output_status('Results flag set');
 					{
 						$self->output_status('Less than ' . $current_item->{search_params}->{count} . ' results -- not requeueing');
 						$self->{log_data}->{tweetstreams}->{$current_item->{id}}->{end_state} = 'Update Completed (Hooray)';
+					}
+					#if this tweetstream has had more than its fair share of API (it's crazy big)
+					elsif ($current_item->{session_tweet_count} > $self->{max_tweets_per_session})
+					{
+						$self->output_status('Tweetstream ' . $current_item->{id} . ' has harvested ' . $current_item->{session_tweet_count} . ', so has not been requeued.');
+						$self->{log_data}->{tweetstreams}->{$current_item->{id}}->{end_state} = 'Reached tweepository session limit';
 					}
 					else
 					{ 
@@ -306,6 +315,7 @@ sub process_results
 
 	foreach my $tweetstreamid (@{$current_item->{tweetstreamids}})
 	{
+		$self->output_status("Adding tweets to $tweetstreamid");
 		my $tweetstream = $tweetstream_ds->dataobj($tweetstreamid);
 		die ("UNEXPECTED CRITICAL ERROR: couldn't create tweetstream $tweetstreamid") unless $tweetstream;
 
@@ -428,6 +438,7 @@ sub create_queue_item
 			},
 			tweetstreamids => [ $tweetstream->id ], #for when two streams have identical search strings
 			retries => $QUERY_RETRIES, #if there's a failure, we'll try again.
+			session_tweet_count => 0, #how many tweets have we added this session?
 		};
 
 		#get all available results to fill in possible holes if we've previously crashed

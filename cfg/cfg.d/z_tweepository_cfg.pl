@@ -1,6 +1,9 @@
 #turn off links and plugins that are not associated with the twitter harvesting functionality
 $c->{tweepository_simplify_menus} = 1;
 
+#how many tweets per tweetstream per update before we stop collecting
+$c->{tweepository_max_tweets_per_session} = 3000;
+
 #how many tweets do we need to have to use .tar.gz to package it (zip files can't handle really large archives)
 $c->{tweepository_archive_tar_threshold} = 1000000; #one *million* tweets (problems with zip seem to happen at around 10 million or so, so this is quite safe). 
 
