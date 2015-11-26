@@ -1815,6 +1815,7 @@ sub csv_cols
 		{ fieldname => "iso_language_code", ncols => 1 },
 		{ fieldname => "source", ncols => 1 },
 		{ fieldname => "text_enriched", ncols => 1 },
+		{ fieldname => "coordinates", ncols => 2, },
 		{ fieldname => "tweetees", ncols => ( $self->get_value('tweetees_ncols') ? $self->get_value('tweetees_ncols') : 1 ) },
 		{ fieldname => "hashtags", ncols => ( $self->get_value('hashtags_ncols') ? $self->get_value('hashtags_ncols') : 1 ) },
 		{ fieldname => "urls_from_text", ncols => ( $self->get_value('urls_from_text_ncols') ? $self->get_value('urls_from_text_ncols') : 1 ) },
