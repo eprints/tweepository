@@ -24,9 +24,18 @@ sub new
 			position => 300,
 		},
 	];
-	
+
 	return $self;
 }
+
+sub properties_from
+{
+	my( $self ) = @_;
+
+	$self->SUPER::properties_from;
+	$self->{processor}->{file_to_export} = $self->{processor}->{dataobj}->export_package_filepath;
+}
+
 
 sub can_be_viewed
 {
@@ -43,7 +52,7 @@ sub allow_export_redir
 {
 	my ($self) = @_;
 
-	return 0 unless (-e $self->{processor}->{dataobj}->export_package_filepath);
+	return 0 unless (-e $self->{processor}->{file_to_export});
 
 	return $self->can_be_viewed;
 }
@@ -52,7 +61,7 @@ sub allow_export
 {
 	my ($self) = @_;
 
-	return 0 unless (-e $self->{processor}->{dataobj}->export_package_filepath);
+	return 0 unless (-e $self->{processor}->{file_to_export});
 
 	return $self->can_be_viewed;
 }
@@ -99,7 +108,7 @@ sub render_active
 	}
 	else
 	{
-		my $file = $ts->export_package_filepath;
+		my $file = $self->{processor}->{file_to_export};
 		if (-e $file)
 		{
 			$div->appendChild($self->_render_package_details);
@@ -134,7 +143,8 @@ sub render_non_active
 
 	$div->appendChild($self->html_phrase('non_active_preamble'));
 
-	my $file = $ts->export_package_filepath;
+	my $file = $self->{processor}->{file_to_export};
+
 	if (-e $file)
 	{
 		$div->appendChild($self->_render_package_details);
@@ -153,7 +163,7 @@ sub _render_package_details
 
 	my $session = $self->{session};
 	my $ts = $self->{processor}->{dataobj};
-	my $file = $ts->export_package_filepath;
+	my $file = $self->{processor}->{file_to_export};
 
 	#sanity check
 	return $self->repository->xml->create_document_fragment unless -e $file;
@@ -230,23 +240,22 @@ sub export
 {
 	my( $self ) = @_;
 
-	my $tweetstream = $self->{processor}->{dataobj};
-	my $filepath = $tweetstream->export_package_filepath;
+	my $filepath = $self->{processor}->{file_to_export};
 	
 	return unless -e $filepath;
 
 	my $buffer;
-	open ZIP, $filepath || return;
+	open FILE, $filepath || return;
 
-	binmode ZIP;
+	binmode FILE;
 	binmode STDOUT;
 
 	while (
-		read (ZIP, $buffer, 655536)
+		read (FILE, $buffer, 655536)
 		and print STDOUT $buffer
 	) {};
 
-	close ZIP;
+	close FILE;
 
 }
 
@@ -254,17 +263,19 @@ sub export_mimetype
 {
 	my ($self) = @_;
 
-	my $tweetstream = $self->{processor}->{dataobj};
+	my $f = $self->{processor}->{file_to_export};
 
-	my $export_package_filename = $tweetstream->export_package_filename;
-
-	if ($export_package_filename =~ m/\.zip$/)
+	if ($f =~ m/\.zip$/)
 	{
 		return 'application/zip';
 	}
-	if ($export_package_filename =~ m/\.tar\.gz$/)
+	if ($f =~ m/\.tar\.gz$/)
 	{
 		return 'application/gzip';
+	}
+	if ($f =~ m/\.csv$/)
+	{
+		return 'text/csv';
 	}
 
 
@@ -284,7 +295,7 @@ sub export_url
 
 	my $tweetstream = $self->{processor}->{dataobj};
 	my $tweetstreamid = $tweetstream->id;
-	my $filename = $tweetstream->export_package_filename;
+	my $filename = $self->{processor}->{file_to_export};
 
 	my $url = URI->new( $self->{session}->get_uri() . "/export_tweetstream_package/" . $filename );
 

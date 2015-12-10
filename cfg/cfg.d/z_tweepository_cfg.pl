@@ -29,6 +29,7 @@ Export::TweetStream::GoogleMap
 $c->{tweepository_tools_on_summary_page} = [
 'Screen::Workflow::View','Screen::Workflow::Edit',
 'Screen::RequestTweetStreamExport', 'Screen::ExportArchivedPackage',
+'Screen::ExportUpdateLog',
 ];
 
 $c->{tweepository_newest_coordinates_n} = 600;

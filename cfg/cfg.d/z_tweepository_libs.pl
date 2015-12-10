@@ -15,6 +15,7 @@ foreach my $pluginid (qw/
 	Screen::ManageTweetstreamsLink
 	Screen::RequestTweetStreamExport
 	Screen::ExportArchivedPackage
+	Screen::ExportUpdateLog
 	Screen::GoogleMap
 	Screen::TweetStreamSearch
 /)
@@ -1240,6 +1241,37 @@ sub export_package_directory
 	make_path($target_dir) unless -d $target_dir;
 
 	return $target_dir;
+}
+
+sub update_log_filepath
+{
+	my ($self) = @_;
+	my $repo = $self->repository;
+
+	my $repository = @_;
+
+	my $target_dir = $self->export_package_directory;
+
+	my $filename = 'tweetstream' . $self->id . '_updates.csv';
+
+	return "$target_dir$filename";
+}
+
+sub log_update
+{
+	my ($self, $start_time, $end_time, $count, $status) = @_;
+
+	my $file = $self->update_log_filepath;
+
+	if (!-e $file)
+	{
+		open FILE, ">$file"; #handle exception
+		print FILE EPrints::Plugin::Export::TweetStream::CSV::csv("Start Time", "End Time", "Number of Tweets Added", "End State"); #headings
+		close FILE;
+	}
+
+	open FILE, ">>$file"; #handle exception
+	print FILE EPrints::Plugin::Export::TweetStream::CSV::csv($start_time, $end_time, $count, $status);
 }
 
 sub export_package_filepath

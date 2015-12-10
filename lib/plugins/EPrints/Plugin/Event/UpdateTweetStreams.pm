@@ -58,7 +58,7 @@ sub action_update_tweetstreams
 	}
 	$self->create_lock;
 
-	$self->{log_data}->{start_time} = scalar localtime time;
+	$self->{log_data}->{start_time} = EPrints::Time::iso_datetime;
 
 	$self->wait;
 
@@ -180,7 +180,7 @@ $self->output_status('Results flag set');
 				if ($results_count < 1)#if an empty page of results, assume no more tweets
 				{
 					$self->output_status('Empty Results Set');
-					$self->{log_data}->{tweetstreams}->{$current_item->{id}}->{end_state} = 'Update Completed \o/';
+					$self->{log_data}->{tweetstreams}->{$current_item->{id}}->{end_state} = 'Update Completed (no more tweets from twitter)';
 				}
 				else
 				{
@@ -188,15 +188,15 @@ $self->output_status('Results flag set');
 					$self->process_results($current_item, $results);
 
 					$self->output_status('Tweets created');
-
+#disabled this check -- it appears from the logs that sometimes e.g. 98 tweets are returned.  Not sure why
 					#if less than a page of data, assume we've reached the end of the results
-					if ($results_count < $current_item->{search_params}->{count})
-					{
-						$self->output_status('Less than ' . $current_item->{search_params}->{count} . ' results -- not requeueing');
-						$self->{log_data}->{tweetstreams}->{$current_item->{id}}->{end_state} = 'Update Completed (Hooray)';
-					}
+#					if ($results_count < $current_item->{search_params}->{count})
+#					{
+#						$self->output_status('Less than ' . $current_item->{search_params}->{count} . ' results -- not requeueing');
+#						$self->{log_data}->{tweetstreams}->{$current_item->{id}}->{end_state} = 'Update Completed (partial page from twitter)';
+#					}
 					#if this tweetstream has had more than its fair share of API (it's crazy big)
-					elsif ($current_item->{session_tweet_count} > $self->{max_tweets_per_session})
+					if ($current_item->{session_tweet_count} > $self->{max_tweets_per_session})
 					{
 						$self->output_status('Tweetstream ' . $current_item->{id} . ' has harvested ' . $current_item->{session_tweet_count} . ', so has not been requeued.');
 						$self->{log_data}->{tweetstreams}->{$current_item->{id}}->{end_state} = 'Reached tweepository session limit';
@@ -241,8 +241,23 @@ $self->output_status('results flag not set');
 	}
 
 	$self->output_status("Updating ended");
-	$self->{log_data}->{end_time} = scalar localtime time;
+	$self->{log_data}->{end_time} = EPrints::Time::iso_datetime;
 	$self->{log_data}->{api_rate_limit} = $limit;
+
+	#write logs for each tweetstream
+	my $ts_ds = $self->repository->dataset('tweetstream');
+	foreach my $tsid (keys %{$self->{log_data}->{tweetstreams}})
+	{
+		my $ts_log = $self->{log_data}->{tweetstreams}->{$tsid};
+
+                my $count = v($ts_log->{tweets_created},0) + v($ts_log->{tweets_added},0);
+                my $end = v($ts_log->{end_state},'Unknown Endstate');
+
+		my $ts = $ts_ds->dataobj($tsid);
+		next unless $ts;
+		$ts->log_update($self->{log_data}->{start_time},$self->{log_data}->{end_time},$count,$end);
+	}
+
 	$self->write_log;
 	$self->remove_lock;
 }

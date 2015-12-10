@@ -3,6 +3,7 @@
 <epp:phrases xmlns="http://www.w3.org/1999/xhtml" xmlns:epp="http://eprints.org/ep3/phrase" xmlns:epc="http://eprints.org/ep3/control">
 
     <epp:phrase id="user_typename_user">Viewer</epp:phrase>
+    <epp:phrase id="Plugin/Screen/ExportUpdateLog:download_log_absent">This item has no log -- it may be newly created (no harvesting yet) or predate item-by-item logging.</epp:phrase>
 
     <epp:phrase id="user_typename_editor">Collector</epp:phrase>
 
@@ -27,14 +28,30 @@
 
 
     <epp:phrase id="Plugin/Screen/RequestTweetStreamExport:title">Twitter Packager</epp:phrase>
+    <epp:phrase id="Plugin/Screen/ExportUpdateLog:title">Update Log</epp:phrase>
     <epp:phrase id="Plugin/Screen/RequestTweetStreamExport:queue_export">Generate New Package</epp:phrase>
     <epp:phrase id="Plugin/Screen/RequestTweetStreamExport:export_redir">Download Package</epp:phrase>
     <epp:phrase id="Plugin/Screen/ExportArchivedPackage:export_redir">Download Package</epp:phrase>
+    <epp:phrase id="Plugin/Screen/ExportUpdateLog:export_redir">Download Log CSV</epp:phrase>
     <epp:phrase id="TweetStream/export_arvchived"><p>This collection has been archived.  Please download the package.</p></epp:phrase>
+
+    <epp:phrase id="Plugin/Screen/ExportUpdateLog:download_log_preamble"><div class="tweepository_preamble"><p>As the system harvests from twitter, it keeps a log for each tweetstream, which is viewable and downloadable here.</p></div>
+</epp:phrase>
 
     <epp:phrase id="Plugin/Screen/RequestTweetStreamExport:preamble"><div class="tweepository_preamble"><p>This tool exists to assist with exporting collections that are too large to export with the standard tweepository exporters.  It will generate a zip file containing CSV and JSON files of all of the tweets.  It may take several hours to run.</p>
 <p>If a package is already available for download here, you may click '<epc:phrase ref="Plugin/Screen/RequestTweetStreamExport:queue_export"/>' button to generate a new, fresh package. Note that the current package (if existing) will no longer be downloadable.</p></div></epp:phrase>
 
+    <epp:phrase id="Plugin/Screen/ExportUpdateLog:update_log_details">
+<div style="height: 400px; overflow: auto">
+<epc:pin name="logfile"/>
+</div>
+
+<table class="tweetstream_file_summary_table">
+<tr><td>Datestamp:</td><td><epc:pin name="datestamp"/></td></tr>
+<tr><td>Filesize:</td><td><epc:pin name="filesize"/></td></tr>
+<tr><td class="download_td" colspan="2"><epc:pin name="downloadbutton"/></td></tr>
+</table>
+ </epp:phrase>
     <epp:phrase id="Plugin/Screen/RequestTweetStreamExport:package_exists"><p>A package exists and may be downloaded.
 <table class="tweetstream_file_summary_table">
 <tr><td>Datestamp:</td><td><epc:pin name="datestamp"/></td></tr>

@@ -47,6 +47,7 @@ JSON
 LWP::UserAgent
 Number::Bytes::Human
 Storable
+Text::CSV::Simple
 URI
 URI::Find
 Net::Twitter::Lite::WithAPIv1_1
