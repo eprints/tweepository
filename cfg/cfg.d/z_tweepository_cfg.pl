@@ -1,3 +1,21 @@
+#web observatory configuration -- override in an alphabetically later file
+$c->{web_observatories} =
+{
+#	'websobservatory1' =>
+#	{
+#		type => 'mysql',
+#		server => 'foo.bar.uk',
+#		port => 1234,
+#		username => 'username',
+#		password => 'password',
+#		authorised_users =>
+#		[
+#			'username1',
+#			'username2'
+#		]
+#	}
+};
+
 #turn off links and plugins that are not associated with the twitter harvesting functionality
 $c->{tweepository_simplify_menus} = 1;
 

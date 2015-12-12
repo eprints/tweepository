@@ -335,8 +335,10 @@ $c->add_dataset_field( 'tweetstream', { name=>"rendered_tweetlist", virtual=> 1,
 $c->add_dataset_field( 'tweetstream', { name => "tools", type=>'boolean', virtual => '1', render_value => 'EPrints::DataObj::TweetStream::render_tools' }, );
 $c->add_dataset_field( 'tweetstream', { name => "exports", type=>'boolean', virtual => '1', render_value => 'EPrints::DataObj::TweetStream::render_exports' }, );
 
-
-
+#fields for exporting to a Web Observatory
+$c->add_dataset_field('tweetstream', { name => 'web_observatory_export', type => 'set', options => [ 'yes', 'no' ]});
+$c->add_dataset_field('tweetstream', { name => 'web_observatory_id', type => 'text'});
+$c->add_dataset_field('tweetstream', { name => 'web_observatory_collection', type => 'text'});
 
 {
 package EPrints::DataObj::Tweet;
@@ -516,6 +518,7 @@ sub commit
 {
 	my( $self, $force ) = @_;
 
+	my $repo = $self->repository;
 	$self->set_value('newborn', 'TRUE') if !$self->is_set('newborn');
 
 	$self->update_triggers();
@@ -538,6 +541,36 @@ sub commit
 		# don't do anything if there isn't anything to do
 		return( 1 ) unless $force;
 	}
+
+	if ($self->is_set('web_observatory_id'))
+	{
+		my $wo_id = $self->value('web_observatory_id');
+		my $wo_conf = $repo->config('web_observatories');
+		if (!$wo_conf->{$wo_id})
+		{
+			$self->set_value('web_observatory_id'); #unset
+			#notify?
+		}
+		else
+		{	
+			my $current_username = $repo->current_user->value('username');
+			my $allowed = 0;		
+			foreach	my $username (@{$wo_conf->{$wo_id}->{authorised_users}})
+			{
+				if ($username eq $current_username)
+				{
+					$allowed = 1;
+					last;
+				}
+			}
+			if (!$allowed)
+			{
+				$self->set_value('web_observatory_id'); #unset
+				#need to notify?
+			}
+		}
+	}
+
 
 	my $success = $self->SUPER::commit( $force );
 	

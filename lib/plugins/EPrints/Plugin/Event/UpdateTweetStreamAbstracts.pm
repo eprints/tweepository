@@ -129,8 +129,9 @@ sub update_tweetstream_abstracts
 	my $page_size = 100000; #number of tweets we process before tidying the data
 	my $i = 0;
 	my $data = {};
+	my $web_observatory_export_data = {};
 	my $tweet_count = 0;
-	foreach my $tweetid ($low_id..$high_id)
+	TWEET: foreach my $tweetid ($low_id..$high_id)
 	{
 		$self->wait; #let blocked_by plugins run their course
 
@@ -155,11 +156,34 @@ sub update_tweetstream_abstracts
 
 		foreach my $tsid (@{$tsids})
 		{
-			$data->{$tsid} = {} if (!$data->{$tsid}); #make sure we have an entry in the has for this tweetstream 
+			$data->{$tsid} = {} if (!$data->{$tsid}); #make sure we have an entry in the hash for this tweetstream 
 
 			$self->merge_in($data->{$tsid}, $tweet_data);
 		}
 
+		#build a page's worth of database export file content
+		foreach my $tsid (@{$tsids})
+		{
+			#initialise
+			if (!$web_observatory_export_data->{$tsid})
+			{
+				my $tweetstream = $tweetstream_ds->dataobj($tsid);
+				if ($tweetstream && $tweetstream->exists_and_set('web_observatory_export'))
+				{
+					$web_observatory_export_data->{$tsid}->{export} = 1;
+					$web_observatory_export_data->{$tsid}->{data} = []; #we're going to make this a JSON array
+				}
+				else
+				{
+					$web_observatory_export_data->{$tsid}->{export} = 0;
+				}
+			}
+
+			if ($web_observatory_export_data->{$tsid}->{export})
+			{
+				push @{$web_observatory_export_data->{$tsid}->{data}}, $tweet->value('json_source'); #perl equiv of json structure
+			}
+		}
 
 		#tidy the accumulated data after a page of tweets
 		$i++;
@@ -169,6 +193,9 @@ sub update_tweetstream_abstracts
 			$self->output_status("Page completed.  Currently on id $tweetid");
 			#remove the least significant bits of count data to cut down on memory use
 			$self->tidy_tweetstream_data($data);
+
+			$self->save_web_observatory_export_data($web_observatory_export_data); #empties the $web_observatory_export_data->{$id}->{data} arrays as a side-effect
+
 			$i = 0;
 		}
 	}
@@ -237,6 +264,50 @@ sub update_tweetstream_abstracts
 	$self->output_status('Finished');
 }
 
+sub _process_tweet_page
+{
+
+
+
+}
+
+sub save_web_observatory_export_data
+{
+	my ($self, $data) = @_;
+
+	my $target_dir = join('/',
+		$self->repository->config('archiveroot'),
+		'/var',
+		'/tweepository_web_observatory_exports'
+	);
+
+	mkdir $target_dir unless -d $target_dir;
+
+	my $json = JSON->new->allow_nonref;
+
+	foreach my $tsid (keys %{$data})
+	{
+		next unless $data->{$tsid}->{export};
+
+		my $i = 0;
+		my $filename = "$target_dir/$tsid.json.$i";
+		while (-e $filename)
+		{
+			$filename = "$target_dir/$tsid.json.$i";
+			$i++;
+		}
+		
+		my $json_data = $json->pretty->encode($data->{$tsid}->{data});
+
+		open FILE, ">$filename" || next; # better exception handling?
+		binmode FILE;
+		print FILE $json_data;
+		close FILE;
+	}
+
+	
+
+}
 
 sub tweet_to_data
 {

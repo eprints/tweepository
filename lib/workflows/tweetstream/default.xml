@@ -35,6 +35,12 @@
 	<field ref="project_title" />
 	<field ref="abstract" />
     </component>
+    <component type="Field::Multi">
+        <title>Web Observatory Export</title>
+	<field ref="web_observatory_export"/>
+	<field ref="web_observatory_id"/>
+	<field ref="web_observatory_collection"/>
+    </component>
 
   </stage>
 </workflow>
