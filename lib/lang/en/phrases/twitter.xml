@@ -103,6 +103,14 @@
     <epp:phrase id="Plugin/Screen/RequestTweetStreamExport:package_pending"><p>A package is currently being generated for this Twitter feed.  Please check back later.</p></epp:phrase>
     <epp:phrase id="Plugin/Screen/RequestTweetStreamExport:export_queued">Your export has been queued.</epp:phrase>
 
+    <epp:phrase id="tweetstream_fieldname_web_observatory_export">Export to Web Observatory</epp:phrase>
+    <epp:phrase id="tweetstream_fieldhelp_web_observatory_export">Note that you must have your username configured by a repository administrator as having permission to export to a web observatory.</epp:phrase>
+    <epp:phrase id="tweetstream_fieldopt_web_observatory_export_yes">Yes</epp:phrase>
+    <epp:phrase id="tweetstream_fieldopt_web_observatory_export_no">No</epp:phrase>
+    <epp:phrase id="tweetstream_fieldname_web_observatory_id">The ID of the web observatory.</epp:phrase>
+    <epp:phrase id="tweetstream_fieldhelp_web_observatory_id">The web observatory must have been configured by a tweepository administrator.</epp:phrase>
+    <epp:phrase id="tweetstream_fieldname_web_observatory_collection">Web Observatory Collection</epp:phrase>
+    <epp:phrase id="tweetstream_fieldhelp_web_observatory_collection">The name of the collection that this Feed is part of.</epp:phrase>
 
 
     <epp:phrase id="tweetstream_fieldname_geocode">GeoCode (Experimental)</epp:phrase>

@@ -340,6 +340,28 @@ $c->add_dataset_field('tweetstream', { name => 'web_observatory_export', type =>
 $c->add_dataset_field('tweetstream', { name => 'web_observatory_id', type => 'text'});
 $c->add_dataset_field('tweetstream', { name => 'web_observatory_collection', type => 'text'});
 
+
+$c->add_trigger(EP_TRIGGER_VALIDATE_FIELD, sub
+{
+	my %params = @_;
+	my $field = $params{field};
+	my $dataobj = $params{dataobj};
+	my $value = $params{value};
+	my $problems = $params{problems};
+
+	if ($field->name eq 'web_observatory_export')
+	{
+		my $wo_status = $dataobj->validate_web_observatory_meta;
+
+		if (!$wo_status->{valid})
+		{
+			push @{$problems}, $dataobj->repository->xml->create_text_node("Web Observatory Export Issue: " . $wo_status->{msg});
+		}
+	}
+	return EP_TRIGGER_DONE;
+});
+
+
 {
 package EPrints::DataObj::Tweet;
 
@@ -540,35 +562,6 @@ sub commit
 	{
 		# don't do anything if there isn't anything to do
 		return( 1 ) unless $force;
-	}
-
-	if ($self->is_set('web_observatory_id'))
-	{
-		my $wo_id = $self->value('web_observatory_id');
-		my $wo_conf = $repo->config('web_observatories');
-		if (!$wo_conf->{$wo_id})
-		{
-			$self->set_value('web_observatory_id'); #unset
-			#notify?
-		}
-		else
-		{	
-			my $current_username = $repo->current_user->value('username');
-			my $allowed = 0;		
-			foreach	my $username (@{$wo_conf->{$wo_id}->{authorised_users}})
-			{
-				if ($username eq $current_username)
-				{
-					$allowed = 1;
-					last;
-				}
-			}
-			if (!$allowed)
-			{
-				$self->set_value('web_observatory_id'); #unset
-				#need to notify?
-			}
-		}
 	}
 
 
@@ -1327,6 +1320,59 @@ sub render_exports
 	return $object->render_exporters;
 }
 
+sub validate_web_observatory_meta
+{
+	my ($self) = @_;
+	my $repo = $self->repository;
+
+	#export not set -> valid
+	return { valid => 1 } unless $self->is_set('web_observatory_export');
+
+	#export set to no -> valid
+	return { valid => 1 } unless $self->value('web_observatory_export') eq 'yes';
+
+	#validate other bits of meta
+	my $wo_id = $self->value('web_observatory_id');
+	my $wo_conf = $repo->config('web_observatories');
+
+	#is the Web Observatory Configured?
+	if (!$wo_conf->{$wo_id})
+	{
+		return {valid => 0, msg => 'Bad Web Observatory ID'}
+	};
+
+	#does the record owner have permission to do this?
+	my $userid = $self->value('userid');
+	my $user = $repo->dataset('user')->dataobj($userid);
+	unless (
+		$user
+		&& $user->is_set('username') 
+		&& _in_array($user->value('username'), $wo_conf->{$wo_id}->{authorised_users}))
+	{
+		return { valid => 0, msg => 'Unauthorised User Account (based on who created the record)' };
+	}
+
+	return { valid => 0, msg => 'You must specify a collection within the observatory' } unless $self->is_set('web_observatory_collection');
+	my $collection = $self->value('web_observatory_collection');
+	if ($collection !~ m/^[a-zA-Z0-9]+$/)
+	{
+		return { valid => 0, msg => 'Collection IDs must be alphanumeric only' };
+	}
+
+	return { valid => 1 };
+}
+
+sub _in_array
+{
+	my ($val, $arrayref) = @_;
+
+	foreach my $v (@{$arrayref})
+	{
+		return 1 if $v eq $val;
+	}
+	return 0;
+}
+
 sub render_top_tag_cloud
 {
         my( $session , $field , $value , $alllangs , $nolink , $object ) = @_;
@@ -1749,6 +1795,8 @@ sub commit
 {
 	my( $self, $force ) = @_;
 
+	my $repo = $self->repository;
+
 	$self->update_triggers();
 
 	$self->set_value('status', 'active') if !$self->is_set('status');
@@ -1776,6 +1824,7 @@ sub commit
 		# don't do anything if there isn't anything to do
 		return( 1 ) unless $force;
 	}
+
 
 	my $success = $self->SUPER::commit( $force );
 	

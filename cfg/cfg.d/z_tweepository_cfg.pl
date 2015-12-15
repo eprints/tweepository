@@ -6,6 +6,7 @@ $c->{web_observatories} =
 #		type => 'mysql',
 #		server => 'foo.bar.uk',
 #		port => 1234,
+#		db_name => 'foo',
 #		username => 'username',
 #		password => 'password',
 #		authorised_users =>

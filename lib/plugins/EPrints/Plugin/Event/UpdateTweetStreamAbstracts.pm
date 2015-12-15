@@ -154,21 +154,22 @@ sub update_tweetstream_abstracts
 
 		my $tsids = $tweet->value('tweetstreams');
 
+		#collect data for this tweet (aggregate into tweetstream and collect for web observatory export)
 		foreach my $tsid (@{$tsids})
 		{
 			$data->{$tsid} = {} if (!$data->{$tsid}); #make sure we have an entry in the hash for this tweetstream 
-
 			$self->merge_in($data->{$tsid}, $tweet_data);
-		}
 
-		#build a page's worth of database export file content
-		foreach my $tsid (@{$tsids})
-		{
-			#initialise
+			#initialise web observatory export data (page by page)
 			if (!$web_observatory_export_data->{$tsid})
 			{
 				my $tweetstream = $tweetstream_ds->dataobj($tsid);
-				if ($tweetstream && $tweetstream->exists_and_set('web_observatory_export'))
+				my $wo_valid = $tweetstream->validate_web_observatory_meta;
+				if (
+					$tweetstream->is_set('web_observatory_export')
+					&& $tweetstream->value('web_observatory_export') eq 'yes'
+					&& $wo_valid->{valid}
+				)
 				{
 					$web_observatory_export_data->{$tsid}->{export} = 1;
 					$web_observatory_export_data->{$tsid}->{data} = []; #we're going to make this a JSON array
@@ -178,7 +179,7 @@ sub update_tweetstream_abstracts
 					$web_observatory_export_data->{$tsid}->{export} = 0;
 				}
 			}
-
+			#populate web observatory export data
 			if ($web_observatory_export_data->{$tsid}->{export})
 			{
 				push @{$web_observatory_export_data->{$tsid}->{data}}, $tweet->value('json_source'); #perl equiv of json structure
@@ -193,7 +194,6 @@ sub update_tweetstream_abstracts
 			$self->output_status("Page completed.  Currently on id $tweetid");
 			#remove the least significant bits of count data to cut down on memory use
 			$self->tidy_tweetstream_data($data);
-
 			$self->save_web_observatory_export_data($web_observatory_export_data); #empties the $web_observatory_export_data->{$id}->{data} arrays as a side-effect
 
 			$i = 0;
@@ -201,6 +201,7 @@ sub update_tweetstream_abstracts
 	}
 	#one more tidy, for the last page
 	$self->tidy_tweetstream_data($data);
+	$self->save_web_observatory_export_data($web_observatory_export_data); #empties the $web_observatory_export_data->{$id}->{data} arrays as a side-effect
 	$self->output_status('Iteration Complete, starting updating of dataobjs');
 
 	$self->{log_data}->{iterate_end_time} = scalar localtime time;
@@ -264,12 +265,6 @@ sub update_tweetstream_abstracts
 	$self->output_status('Finished');
 }
 
-sub _process_tweet_page
-{
-
-
-
-}
 
 sub save_web_observatory_export_data
 {
@@ -288,19 +283,22 @@ sub save_web_observatory_export_data
 	foreach my $tsid (keys %{$data})
 	{
 		next unless $data->{$tsid}->{export};
+		next unless scalar @{$data->{$tsid}->{data}};
 
 		my $i = 0;
-		my $filename = "$target_dir/$tsid.json.$i";
+		my $filename = "$target_dir/$tsid-$i.json";
 		while (-e $filename)
 		{
-			$filename = "$target_dir/$tsid.json.$i";
 			$i++;
+			$filename = "$target_dir/$tsid-$i.json";
 		}
-		
+
+		$self->output_status("Writing Web Observatory data to $filename");
+
 		my $json_data = $json->pretty->encode($data->{$tsid}->{data});
 
 		open FILE, ">$filename" || next; # better exception handling?
-		binmode FILE;
+		binmode FILE, ":utf8";
 		print FILE $json_data;
 		close FILE;
 	}
