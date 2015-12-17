@@ -265,18 +265,12 @@ sub update_tweetstream_abstracts
 	$self->output_status('Finished');
 }
 
-
 sub save_web_observatory_export_data
 {
 	my ($self, $data) = @_;
 
-	my $target_dir = join('/',
-		$self->repository->config('archiveroot'),
-		'/var',
-		'/tweepository_web_observatory_exports'
-	);
-
-	mkdir $target_dir unless -d $target_dir;
+	my $p = $self->repository->plugin('Event::WebObservatoryPush');
+	my $target_dir = $p->export_dir;
 
 	my $json = JSON->new->allow_nonref;
 
@@ -301,6 +295,8 @@ sub save_web_observatory_export_data
 		binmode FILE, ":utf8";
 		print FILE $json_data;
 		close FILE;
+
+		$data->{$tsid}->{data} = [];
 	}
 
 	

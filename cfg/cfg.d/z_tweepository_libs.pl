@@ -6,6 +6,7 @@ foreach my $pluginid (qw/
 	Event::RecountTweetStreams
 	Event::UpdateTweetStreamAbstracts
 	Event::UpdateTweetStreams
+	Event::WebObservatoryPush
 	Export::TweetStream::CSV
 	Export::TweetStream::GraphML
 	Export::TweetStream::GoogleMap
@@ -54,6 +55,8 @@ $c->{block_map} = {
 
 #UpdateTweetStreamAbstracts is the nightly job, and it will give way to the above processes to avoid hitting the database and delaying UpdateTweetStreams
 	'UpdateTweetStreamAbstracts' => [qw/ RecountTweetStreams UpdateTweetStreams /],
+#WebObservatoryPush uses very little resources, but should run after UpdateTweetstreamAbstracts, so is only blocked by that
+	'WebObservatoryPush' => [qw/ UpdateTweetStreamAbstracts UpdateTweetStreams /],
 
 
 #User Requested Package -- blocked by processes above as they keep the repository running
