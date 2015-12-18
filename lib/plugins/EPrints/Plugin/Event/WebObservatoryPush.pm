@@ -31,6 +31,47 @@ sub export_dir
 	return $dir;
 }
 
+sub action_test_web_observatory
+{
+	my ($self, $wo_id) = @_;
+	my $repo = $self->repository;
+
+	my $wo_conf = $repo->config('web_observatories',$wo_id);
+
+	if (!$wo_conf)
+	{
+		$self->output_status("No repository config for $wo_id");
+		return;
+	}
+
+	foreach my $k (qw/ type /)
+	{
+		my $missing = 0;
+		if (!$wo_conf->{$k})
+		{
+			$self->output_status("$k missing in $wo_id configuration");
+			$missing++;
+		}
+		return if $missing;
+	}
+
+	if ($wo_conf->{type} ne 'mongodb')
+	{
+		$self->output_status("$wo_id has type " . $wo_conf->{type} . ".  Only mongodb is currently supported");
+		return;
+	}
+
+	my $db = $self->connect_to_mongodb($wo_id);
+
+	if (!$db)
+	{
+		$self->output_status("Couldn't connect to database");
+		return;
+	}
+	$self->output_status("Connected to database.  $wo_id appears to work.");
+	return 1;
+}
+
 sub action_web_observatory_push
 {
 	my ($self) = @_;
@@ -156,10 +197,10 @@ sub generate_log_string
 
 sub connect_to_mongodb
 {
-	my ($self, $wo_name) = @_;
+	my ($self, $wo_id) = @_;
 
 	my $repo = $self->repository;
-	my $wo_conf = $repo->config('web_observatories',$wo_name);
+	my $wo_conf = $repo->config('web_observatories',$wo_id);
 
 	eval "use MongoDB; use MongoDB::MongoClient;";
 
@@ -173,7 +214,7 @@ sub connect_to_mongodb
 	{
 		if (!$wo_conf->{$arg})
 		{
-			$self->log("Missing $arg in database config for web observatory '$wo_name'\n");
+			$self->log("Missing $arg in database config for web observatory '$wo_id'\n");
 			return undef;
 		}
 	}
@@ -192,24 +233,24 @@ sub connect_to_mongodb
 	};
 	if (my $err = $@)
 	{
-		my $msg = "Connection Problem for Observatory $wo_name: $err";
-		$self->{log_data}->{obs}->{$wo_name}->{status} = $msg;
+		my $msg = "Connection Problem for Observatory $wo_id: $err";
+		$self->{log_data}->{obs}->{$wo_id}->{status} = $msg;
 		$self->output_status($msg);
 		return undef;
 	}
-	$self->{log_data}->{obs}->{$wo_name}->{status} = "Connected OK";
+	$self->{log_data}->{obs}->{$wo_id}->{status} = "Connected OK";
 	$self->output_status("Connected");
 	return $db;
 }
 
 sub send_mongodb
 {
-	my ($self, $wo_name, $files_to_send) = @_;
+	my ($self, $wo_id, $files_to_send) = @_;
 	my $repo = $self->repository;
 
-	$self->output_status("Sending files to $wo_name");
+	$self->output_status("Sending files to $wo_id");
 
-	my $db = $self->connect_to_mongodb($wo_name);
+	my $db = $self->connect_to_mongodb($wo_id);
 	return unless $db;
 
 	foreach my $collection (keys %{$files_to_send})
@@ -242,26 +283,26 @@ sub send_mongodb
 					if ($err =~ m/^E11000 duplicate key error index:/)
 					{
 						$counts->{duplicate}++;
-						$self->{log_data}->{obs}->{$wo_name}->{cols}->{$collection}->{duplicate_count}++;
+						$self->{log_data}->{obs}->{$wo_id}->{cols}->{$collection}->{duplicate_count}++;
 						#we don't care -- the tweet is alread in the collection
 					}
 					else
 					{
 						$repo->log("Error on MongoDB insert: $err\n");
 						$counts->{error}++;
-						$self->{log_data}->{obs}->{$wo_name}->{cols}->{$collection}->{error_count}++;
+						$self->{log_data}->{obs}->{$wo_id}->{cols}->{$collection}->{error_count}++;
 					}
 				}
 				else
 				{
 					$counts->{insert}++;
-					$self->{log_data}->{obs}->{$wo_name}->{cols}->{$collection}->{insert_count}++;
+					$self->{log_data}->{obs}->{$wo_id}->{cols}->{$collection}->{insert_count}++;
 				}
 			}
 			if (!$counts->{error})
 			{
 				unlink $file;
-				push @{$self->{log_data}->{obs}->{$wo_name}->{cols}->{$collection}->{files_removed}}, $file;
+				push @{$self->{log_data}->{obs}->{$wo_id}->{cols}->{$collection}->{files_removed}}, $file;
 			}
 			$self->output_status('File Pushed. Inserts: '.$counts->{insert}.', Duplicates: '.$counts->{duplicate}.' Errors: '.$counts->{error});
 		}
