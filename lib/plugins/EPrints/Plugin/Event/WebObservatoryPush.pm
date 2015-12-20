@@ -247,6 +247,7 @@ sub send_mongodb
 {
 	my ($self, $wo_id, $files_to_send) = @_;
 	my $repo = $self->repository;
+	my $wo_conf = $repo->config('web_observatories',$wo_id);
 
 	$self->output_status("Sending files to $wo_id");
 
@@ -255,7 +256,13 @@ sub send_mongodb
 
 	foreach my $collection (keys %{$files_to_send})
 	{
-		my $collection_id = $repo->config('base_url') . '/' . $collection;
+		my $collection_id = $collection;
+		
+		if ($wo_conf->{collection_prefix})
+		{
+			$collection_id = $wo_conf->{collection_prefix} . $collection;
+		}
+
 		$self->output_status("Getting collection: $collection_id");
 		my $mongo_collection = $db->get_collection($collection_id);
 		foreach my $file (@{$files_to_send->{$collection}})
