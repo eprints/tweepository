@@ -52,7 +52,8 @@ sub action_update_tweetstreams
 		}
 		else
 		{
-			$self->repository->log( (ref $self) . " is locked.  Unable to run.");
+			#don't log -- this triggers an email -- trust that it's just running over from last time
+			$self->output_status( (ref $self) . " is locked.  Unable to run.");
 			return;
 		}
 	}
