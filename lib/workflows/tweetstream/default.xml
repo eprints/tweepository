@@ -7,6 +7,9 @@
   </flow>
    
   <stage name="default">
+    <component type="XHTML">
+      <epc:phrase ref="tweepository_workflow_message"/>
+    </component>
 
 <epc:if test="!status">
     <component type="Field::Multi">
@@ -35,7 +38,7 @@
 	<field ref="project_title" />
 	<field ref="abstract" />
     </component>
-    <component type="Field::Multi">
+    <component type="Field::Multi" collapse="yes">
         <title>Web Observatory Export</title>
 	<field ref="web_observatory_export"/>
 	<field ref="web_observatory_id"/>
