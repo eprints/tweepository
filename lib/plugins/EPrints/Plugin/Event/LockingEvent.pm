@@ -275,6 +275,12 @@ sub is_locked
 	my $lockfile_pid = $lockfile_content->{pid};
 	my $lockfile_datestamp = $lockfile_content->{datestamp};
 
+	if (!$lockfile_pid || !$lockfile_datestamp)
+	{
+		$self->output_status( (ref $self) . ' Bad lock file!');
+		return 0;
+	}
+
 	my $pid = $$;
 
 	return 0 if $pid == $lockfile_pid; #otherwise we might look like we're locked when it's us that's running

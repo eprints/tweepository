@@ -42,6 +42,7 @@ sub output_dataobj
 
 	if( defined $opts{fh} )
 	{
+		binmode($opts{fh}, ":utf8");
 		print {$opts{fh}} join( "", @{$r} );
 		return;
 	}
