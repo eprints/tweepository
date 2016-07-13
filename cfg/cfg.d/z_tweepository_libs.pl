@@ -184,7 +184,7 @@ $c->add_dataset_field( 'tweet', {
 }, );
 #a list of tweetstreams to which this tweet belongs
 #volatile to speed up operations which add and remove tweets from tweetstreams
-$c->add_dataset_field( 'tweet', { name=>"tweetstreams", type=>"itemref", datasetid=> 'tweetstream', required => 1, multiple => 1, volatile => 1 }, );
+$c->add_dataset_field( 'tweet', { name=>"tweetstreams", type=>"itemref", datasetid=> 'tweetstream', required => 1, multiple => 1, volatile => 1 } );
 
 #a flag to prevent enrichment being done more than once on commit
 $c->add_dataset_field( 'tweet', { name=>"newborn", type=>"boolean"}, );
@@ -1182,7 +1182,7 @@ sub _add_tweet
 
 	push @{$tsids}, $self->value('tweetstreamid');
 	$tweet->set_value('tweetstreams', $tsids);
-	$tweet->commit;
+	$tweet->commit(1); #force commit -- tweetstreams is a volatile value
 	return 1;
 }
 
