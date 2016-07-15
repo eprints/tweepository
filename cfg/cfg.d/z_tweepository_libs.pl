@@ -639,7 +639,7 @@ sub remove_from_tweetstream
 	if (scalar @{$new_tweetstreams})
 	{
 		$self->set_value('tweetstreams', $new_tweetstreams);
-		$self->commit;
+		$self->commit(1);
 	}
 	else
 	{
