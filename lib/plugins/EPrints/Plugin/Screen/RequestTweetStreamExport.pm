@@ -151,6 +151,7 @@ sub render_non_active
 	}
 	else
 	{
+		$div->appendChild($session->make_text("File: --$file--"));
 		$div->appendChild($self->html_phrase('non_active_package_absent'));
 	}
 

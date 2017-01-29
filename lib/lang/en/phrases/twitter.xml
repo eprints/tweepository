@@ -2,6 +2,12 @@
 <!DOCTYPE phrases SYSTEM "entities.dtd">
 <epp:phrases xmlns="http://www.w3.org/1999/xhtml" xmlns:epp="http://eprints.org/ep3/phrase" xmlns:epc="http://eprints.org/ep3/control">
 
+    <epp:phrase id="tweepository_workflow_message">
+	In the interest of system performance, Twitter Feeds are limited to harvesting 5 million tweets.  If you need to harvest more, you should start another when this one fills up. 
+    </epp:phrase>
+
+
+
     <epp:phrase id="user_typename_user">Viewer</epp:phrase>
     <epp:phrase id="Plugin/Screen/ExportUpdateLog:download_log_absent">This item has no log -- it may be newly created (no harvesting yet) or predate item-by-item logging.</epp:phrase>
 

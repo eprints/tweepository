@@ -1,3 +1,6 @@
+#the number of tweets any one tweetstream will have before we stop harvesting
+$c->{tweepository_max_tweets_per_tweetstream} = 5000000;
+
 #web observatory configuration -- override in an alphabetically later file
 $c->{web_observatories} =
 {

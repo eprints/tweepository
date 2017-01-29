@@ -1265,6 +1265,11 @@ sub export_package_directory
 {
 	my ($self) = @_;
 
+	if ($self->repository->config('tweetstream_export_package_directory'))
+	{
+		return $self->repository->config('tweetstream_export_package_directory');
+	}
+
 	my $target_dir = $self->repository->config('archiveroot') . '/tweepository_packages/export/';
 
 	make_path($target_dir) unless -d $target_dir;

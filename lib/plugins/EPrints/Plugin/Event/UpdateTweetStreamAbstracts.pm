@@ -119,7 +119,6 @@ sub update_tweetstream_abstracts
 	$low_id = 0 unless $low_id;
 	$low_id = 0 if $self->{update_from_zero}; #should be unneccesary as update_from_zero will remove the cache
 
-	$low_id += 1; #start at the *next* ID
 	$self->{log_data}->{lowest_tweetid} = $low_id;
 
 	$self->{log_data}->{iterate_start_time} = scalar localtime time;
@@ -131,72 +130,83 @@ sub update_tweetstream_abstracts
 	my $data = {};
 	my $web_observatory_export_data = {};
 	my $tweet_count = 0;
-	TWEET: foreach my $tweetid ($low_id..$high_id)
+
+	my $highest_processed = 0;
+
+	while ($highest_processed < $high_id)
 	{
-		$self->wait; #let blocked_by plugins run their course
-
-		my $tweet = $tweet_ds->dataobj($tweetid);
-		next unless $tweet;
-
-		next unless $tweet->is_set('tweetstreams');
-
-		#this will reprocess the json of the tweet
-		if ($self->{recommit_tweets})
+		my $sth = $self->get_tweetid_page_sth($highest_processed, $page_size);
+		TWEET: while (my $tweetid_row = $sth->fetchrow_arrayref)
 		{
-			$tweet->set_value('newborn', 'TRUE');
-			$tweet->commit;
-		}
+			my $tweetid = $tweetid_row->[0];
+			$highest_processed = $tweetid;
+			$self->wait; #let blocked_by plugins run their course
 
-		$tweet_count++; #number of processed tweets, for logging
-		$self->{log_data}->{highest_tweetid} = $tweetid; #highest ID processed, for logging
+			my $tweet = $tweet_ds->dataobj($tweetid);
+			next TWEET unless $tweet;
 
-		my $tweet_data = $self->tweet_to_data($tweet);
+			next TWEET unless $tweet->is_set('tweetstreams');
 
-		my $tsids = $tweet->value('tweetstreams');
-
-		#collect data for this tweet (aggregate into tweetstream and collect for web observatory export)
-		foreach my $tsid (@{$tsids})
-		{
-			$data->{$tsid} = {} if (!$data->{$tsid}); #make sure we have an entry in the hash for this tweetstream 
-			$self->merge_in($data->{$tsid}, $tweet_data);
-
-			#initialise web observatory export data (page by page)
-			if (!$web_observatory_export_data->{$tsid})
+			#this will reprocess the json of the tweet
+			if ($self->{recommit_tweets})
 			{
+				$tweet->set_value('newborn', 'TRUE');
+				$tweet->commit;
+			}
+
+			$tweet_count++; #number of processed tweets, for logging
+			$self->{log_data}->{highest_tweetid} = $tweetid; #highest ID processed, for logging
+
+			my $tweet_data = $self->tweet_to_data($tweet);
+
+			my $tsids = $tweet->value('tweetstreams');
+
+			#collect data for this tweet (aggregate into tweetstream and collect for web observatory export)
+			foreach my $tsid (@{$tsids})
+			{
+				$data->{$tsid} = {} if (!$data->{$tsid}); #make sure we have an entry in the hash for this tweetstream 
 				my $tweetstream = $tweetstream_ds->dataobj($tsid);
-				my $wo_valid = $tweetstream->validate_web_observatory_meta;
-				if (
-					$tweetstream->is_set('web_observatory_export')
-					&& $tweetstream->value('web_observatory_export') eq 'yes'
-					&& $wo_valid->{valid}
-				)
+				next unless $tweetstream;
+
+				$self->merge_in($data->{$tsid}, $tweet_data);
+
+				#initialise web observatory export data (page by page)
+				if (!$web_observatory_export_data->{$tsid})
 				{
-					$web_observatory_export_data->{$tsid}->{export} = 1;
-					$web_observatory_export_data->{$tsid}->{data} = []; #we're going to make this a JSON array
+					my $wo_valid = $tweetstream->validate_web_observatory_meta;
+					if (
+						$tweetstream->is_set('web_observatory_export')
+						&& $tweetstream->value('web_observatory_export') eq 'yes'
+						&& $wo_valid->{valid}
+					)
+					{
+						$web_observatory_export_data->{$tsid}->{export} = 1;
+						$web_observatory_export_data->{$tsid}->{data} = []; #we're going to make this a JSON array
+					}
+					else
+					{
+						$web_observatory_export_data->{$tsid}->{export} = 0;
+					}
 				}
-				else
+				#populate web observatory export data
+				if ($web_observatory_export_data->{$tsid}->{export})
 				{
-					$web_observatory_export_data->{$tsid}->{export} = 0;
+					push @{$web_observatory_export_data->{$tsid}->{data}}, $tweet->value('json_source'); #perl equiv of json structure
 				}
 			}
-			#populate web observatory export data
-			if ($web_observatory_export_data->{$tsid}->{export})
+
+			#tidy the accumulated data after a page of tweets
+			$i++;
+			$self->output_status('10000 processed') if $i % 10000 == 0;
+			if ($i > $page_size)
 			{
-				push @{$web_observatory_export_data->{$tsid}->{data}}, $tweet->value('json_source'); #perl equiv of json structure
+				$self->output_status("Page completed.  Currently on id $tweetid");
+				#remove the least significant bits of count data to cut down on memory use
+				$self->tidy_tweetstream_data($data);
+				$self->save_web_observatory_export_data($web_observatory_export_data); #empties the $web_observatory_export_data->{$id}->{data} arrays as a side-effect
+
+				$i = 0;
 			}
-		}
-
-		#tidy the accumulated data after a page of tweets
-		$i++;
-		$self->output_status('10000 processed') if $i % 10000 == 0;
-		if ($i > $page_size)
-		{
-			$self->output_status("Page completed.  Currently on id $tweetid");
-			#remove the least significant bits of count data to cut down on memory use
-			$self->tidy_tweetstream_data($data);
-			$self->save_web_observatory_export_data($web_observatory_export_data); #empties the $web_observatory_export_data->{$id}->{data} arrays as a side-effect
-
-			$i = 0;
 		}
 	}
 	#one more tidy, for the last page
@@ -367,6 +377,21 @@ sub merge_in
 			$destination_hashref->{$data_category}->{$data_point} += $new_data_hashref->{$data_category}->{$data_point};
 		}
 	}
+}
+
+sub get_tweetid_page_sth
+{
+	my ($self, $low_id, $page_size) = @_;
+
+	my $db = $self->repository->database;
+
+	my $sql = "SELECT tweetid FROM tweet WHERE tweetid > $low_id ORDER BY tweetid LIMIT $page_size";
+	my $sth = $db->prepare($sql);
+	$sth->execute;
+
+	$self->output_status("Got page $page_size IDs greater than $low_id");
+
+	return $sth;
 }
 
 sub get_highest_tweetid

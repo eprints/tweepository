@@ -77,6 +77,7 @@ sub action_update_tweetstreams
 	$self->output_status("Initial Rate Limit: $limit");
 
 	my $active_tweetstreams = $self->active_tweetstreams;
+
 	my $queue_items = {};
 	$active_tweetstreams->map(
 		\&EPrints::Plugin::Event::UpdateTweetStreams::create_queue_item,
@@ -486,7 +487,17 @@ sub active_tweetstreams
 #	$searchexp->add_field(
 #			$ds->get_field( "status" ),
 #			"active" );
-	
+
+	#filter out items that have more tweets in than we allow	
+	my $max_tweets_per_tweetstream = $self->repository->config('tweepository_max_tweets_per_tweetstream');
+	if ($max_tweets_per_tweetstream)
+	{
+		$searchexp->add_field(
+			$ds->get_field( 'tweet_count' ),
+			'0..' . $max_tweets_per_tweetstream
+		);
+	}
+
 
 	return $searchexp->perform_search;
 }

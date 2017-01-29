@@ -172,9 +172,21 @@ sub reset_tmp_dir
 {
 	my ($self) = @_;
 
-	$self->{tmp_dir} = File::Temp->newdir( "ep-ts-export-tempXXXXX", TMPDIR => 1 );
+	my %args = ( TMPDIR => 1 );
+	if ($self->repository->config('tweetstream_export_package_directory'))
+	{
+		$args{DIR} = $self->repository->config('tweetstream_export_package_directory');
+	}
+
+	$self->{tmp_dir} = File::Temp->newdir( "ep-ts-export-tempXXXXX", %args);
 }
 
+sub clear_tmp_dir
+{
+	my ($self) = @_;
+
+	$self->{tmp_dir} = undef; #will be unlinked as it goes out of scope.
+}
 
 #unordered is a flag that's set if the content is not ordered
 sub create_fh

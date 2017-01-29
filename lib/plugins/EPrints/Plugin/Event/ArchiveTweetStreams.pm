@@ -6,7 +6,8 @@ use EPrints::Plugin::Event::ExportTweetStreamPackage;
 use File::Path qw/ make_path /;
 use Archive::Zip qw( :ERROR_CODES :CONSTANTS );
 use File::Copy;
-use JSON;
+use JSON::XS qw/ /;
+use JSON::PP qw/ /;
 use Cwd;
 
 use strict;
@@ -235,7 +236,12 @@ sub count_tweets_in_tar
 	my $tweet_count = 0;
 
 	#unpack to temp directory
-	my $tmp_dir = File::Temp->newdir( "ep-ts-validate-tempXXXXX", TMPDIR => 1 );
+	my %args = ( TMPDIR => 1 );
+	if ($self->repository->config('tweetstream_export_package_directory'))
+	{
+		$args{DIR} = $self->repository->config('tweetstream_export_package_directory');
+	}
+	my $tmp_dir = File::Temp->newdir( "ep-ts-verify-tempXXXXX", %args);
 
 	copy($filename, $tmp_dir);
 
@@ -342,31 +348,57 @@ sub count_tweets_in_zip
 sub count_tweets_in_json
 {
 	my ($self, $filehandle, $filename) = @_;
-	my $repo = $self->repository;
-        my $json = JSON->new->allow_nonref;
 
 	my $tweet_count = 0;
-	my @json_txt = <$filehandle>;
 
 	$self->output_status('verifying json file ' . $filename);
 
-	my $tweets = eval { $json->utf8()->decode(join('',@json_txt)); };
-	if ($@)
+	my @json_txt = <$filehandle>;
+	my $tweets = $self->decode_tweet_json(join('',@json_txt));
+
+	if (!$tweets)
 	{
-		$repo->log("Problem parsing $filename in $filename\n");
 		return 0;
-	}	
+	}
 
 	foreach my $json_tweet (@{$tweets->{tweets}})
 	{
 		if (!$json_tweet->{id})
 		{
-			$repo->log("Tweet with no ID in $filename in $filename\n");
+			$self->output_status("Tweet with no ID in $filename in $filename\n");
 			return 0;
 		}
 		$tweet_count++;
 	}
 	return $tweet_count;
+}
+
+
+sub decode_tweet_json 
+{
+	my ($self, $json_txt) = @_;
+
+        my $json = JSON::XS->new->allow_nonref;
+
+        my $tweets = eval { $json->utf8()->decode($json_txt); };
+        if (!$@)
+        {
+		return $tweets;
+        }
+	$self->output_status("JSON::XS failed, moving onto JSON::PP");
+
+	#PP is painfully slow, but allow loose decoding, which ignores some invalid utf8 text that appears to be creeping in...
+        $json = JSON::PP->new->allow_nonref;
+	$json->loose(1); 
+
+        $tweets = eval { $json->utf8()->decode($json_txt); };
+        if (!$@)
+        {
+		return $tweets;
+        }
+	$self->output_status("JSON::PP failed");
+
+	return undef;
 }
 
 sub generate_log_string
