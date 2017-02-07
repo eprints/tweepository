@@ -131,7 +131,7 @@ sub update_tweetstream_abstracts
 	my $web_observatory_export_data = {};
 	my $tweet_count = 0;
 
-	my $highest_processed = 0;
+	my $highest_processed = $low_id;
 
 	while ($highest_processed < $high_id)
 	{
@@ -197,7 +197,6 @@ sub update_tweetstream_abstracts
 
 			#tidy the accumulated data after a page of tweets
 			$i++;
-			$self->output_status('10000 processed') if $i % 10000 == 0;
 			if ($i > $page_size)
 			{
 				$self->output_status("Page completed.  Currently on id $tweetid");
